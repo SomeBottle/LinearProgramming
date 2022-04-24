@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 typedef struct { // 方程中的一项，包括系数，变量名
     char coefficient[4]; // 系数
     char variable[3]; // 变量名
@@ -27,3 +28,10 @@ typedef struct { // 线性规划数学模型，包括线性函数数组和约束
     ST *constraints; // 约束
 } LPModel;
 
+typedef struct { // 分隔字符串返回结果
+    char **split;
+    int len;
+} SplitResult;
+
+extern SplitResult SplitByChr(char *str, int strLen, char chr);
+extern int freeSplitArr(SplitResult *rs);

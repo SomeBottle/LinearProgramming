@@ -76,7 +76,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     }
     free(buffer); // 释放暂存区
     buffer = NULL;
-    if(errorOccurs){ // 发生了错误
+    if (errorOccurs) { // 发生了错误
 
     }
     LPModel result = {
@@ -87,8 +87,9 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
 
 int writeIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析后写入LF或者ST
     switch (readFlag) {
+        SplitResult colonSp;
         case 1: // 写入LF
-            
+            colonSp = SplitByChr(str, strlen(str), ':');
             break;
         case 2: // 写入ST
 
