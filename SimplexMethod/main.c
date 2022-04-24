@@ -1,5 +1,6 @@
 #include "public.h"
-extern LPModel Parser(FILE* fp); // 外部变量，定义于dataParser
+
+extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 
 int main(int args, char *argv[]) {
     FILE *fileStream; // 定义文件指针（类型定义来自stdio）
@@ -13,7 +14,7 @@ int main(int args, char *argv[]) {
         }
         fclose(fileStream);
     } else {
-        printf("Lacking of argument.\nUsage: %s <filename>", argv[0]);
+        printf("Lacking of argument.\nUsage: %s <filename>\n", argv[0]);
     }
     system("pause");
     return 0;
