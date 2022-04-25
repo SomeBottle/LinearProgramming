@@ -1,3 +1,7 @@
+CONSTANTS {
+	M;
+}
+
 LF {
 	max:z=2x1+3x2
 }

@@ -33,5 +33,8 @@ typedef struct { // 分隔字符串返回结果
     int len;
 } SplitResult;
 
-extern SplitResult SplitByChr(char *str, int strLen, char chr);
+
+extern SplitResult SplitByChr(char *str, char chr);
 extern int freeSplitArr(SplitResult *rs);
+extern char** constants;
+extern int constantsNum;

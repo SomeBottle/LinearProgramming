@@ -6,13 +6,20 @@
 #define BUFFER_SIZE_PER_ALLOC 100 // 每次分配给字符串暂存区的内存大小
 #define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配100个
 
-static int readFlag = 0; // 正在读取哪个部分，为1代表在读目标函数LF，为2代表在读约束ST，分开处理。
+char **constants = NULL; // 常数项指针数组
+int constArrLen = BUFFER_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
+int constantsNum = 0; // 常数项数量
+
+// 正在读取哪个部分，为1代表在读目标函数LF，为2代表在读约束ST，3则代表在读取常量CONSTANTS，分开处理。
+static int readFlag = 0;
 
 int InterruptBuffer(char x);
 
 LPModel Parser(FILE *fp);
 
-int writeIn(LF *linearFunc, ST *subjectTo, char *str);
+int FormulaParser(LF *linearFunc, ST *subjectTo, char *str);
+
+int WriteIn(LF *linearFunc, ST *subjectTo, char *str);
 
 
 int InterruptBuffer(char x) { // 什么时候截断字符串暂存
@@ -22,7 +29,6 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
         return 1;
     } else if (x == '}') { // 离开}区域
         bracket = 0;
-        readFlag = 0; // 离开大括号说明读取完毕了，设置读取标记为0
         return 1;
     }
     // 进入括号区域后就接受空格，但是遇到分号还是会截断字符串，起到分隔的作用
@@ -31,12 +37,15 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
 
 LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     LF linearFunc; // 初始化目标函数结构体
-    ST subjectTo; // 初始化约束结构体
+    ST *subjectTo = NULL; // 初始化约束结构体
     int errorOccurs = 0; // 是否发生错误
     char currentChar;
     int bufferPointer = 0; // 字符串暂存区指针
     int bufferLen = BUFFER_SIZE_PER_ALLOC; // 字符串暂存区长度，防止溢出
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
+    if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
+        constants = (char **) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char *));
+    }
     while (!feof(fp)) {
         currentChar = (char) fgetc(fp);
         if (!InterruptBuffer(currentChar)) { // 字符不是空白符，推入buffer
@@ -56,16 +65,19 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                 }
             }
         } else if (strlen(buffer) > 0) { // 遇到空白字符, 暂存区中有内容就进行处理
-            if (strncmp(buffer, "LF", 2) == 0) {
+            if (strcmp(buffer, "LF") == 0) {
                 readFlag = 1; // 正在读取目标函数LF
-            } else if (strncmp(buffer, "ST", 2) == 0) {
+            } else if (strcmp(buffer, "ST") == 0) {
                 readFlag = 2; // 正在读取约束ST
+            } else if (strcmp(buffer, "CONSTANTS") == 0) {
+                readFlag = 3; // 正在读取常量列表
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
-                int writeResult = writeIn(&linearFunc, &subjectTo, buffer);
+                int writeResult = WriteIn(&linearFunc, subjectTo, buffer);
                 if (!writeResult) {
                     errorOccurs = 1;
                     break; // 解析数据失败，中止
                 }
+                readFlag = 0; // 读取完毕
             }
             printf("len:%d, Str: %s\n", strlen(buffer), buffer);
             free(buffer); // 释放内存块，抛弃当前暂存区
@@ -85,14 +97,69 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     return result;
 }
 
-int writeIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析后写入LF或者ST
+int FormulaParser(LF *linearFunc, ST *subjectTo, char *str) { // 将方程字符串处理为对应结构体
+    int status = 1; // 返回码
+    int i, len = strlen(str);
+    char currentChar;
+    int bufferPointer = 0; // 字符串暂存区指针
+    char *buffer = (char *) calloc(len, sizeof(char)); // 字符串暂存区，最开始分配100个
+    for (i = 0; i < len; i++) {
+        currentChar = str[i];
+        if (currentChar == '+' || currentChar == '-') { // 是加号或减号，这是每一项的划分标志
+
+        } else if (strchr(">=<", currentChar) != NULL) { // 是关系符号，这是方程左右的划分标志
+
+        } else {
+            buffer[bufferPointer] = currentChar; // 逐字符处理
+        }
+    }
+    if (readFlag == 1) { // 处理目标函数
+    } else if (readFlag == 2) {
+
+    }
+    free(buffer); // 释放暂存区
+    return status;
+}
+
+int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析后写入LF或者ST
+    int status = 1; // 返回码
+    int stringLen = strlen(str);
+    SplitResult colonSp; // 初始化分割字符串
     switch (readFlag) {
-        SplitResult colonSp;
         case 1: // 写入LF
-            colonSp = SplitByChr(str, strlen(str), ':');
+            // 根据冒号分割
+            colonSp = SplitByChr(str, ':');
+            if (colonSp.len < 2) { // 目标函数没有指定maximize or minimize，无效
+                printf("Objective function invalid.\n");
+                status = 0;
+            } else if (strcmp(colonSp.split[0], "max") || strcmp(colonSp.split[0], "min")) { // 必须要是max/min
+                strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
+                FormulaParser(linearFunc, subjectTo, colonSp.split[1]); // 将公式处理成结构体
+            } else {
+                printf("Objective function invalid.\n");
+                status = 0;
+            }
+            freeSplitArr(&colonSp); // 用完后释放
             break;
         case 2: // 写入ST
 
             break;
+        case 3: // 写入常数项
+            constants[constantsNum] = (char *) calloc(stringLen + 1, sizeof(char));
+            strcpy(constants[constantsNum], str); // 将常量(字符串表示)放入常量数组
+            constantsNum++;
+            if(constantsNum>=constArrLen){ // 数组不够放了！需要分配更多
+                constArrLen+=BUFFER_SIZE_PER_ALLOC;
+                constants=(char**) realloc(constants,sizeof(char*)*constArrLen);
+                if(constants!=NULL){ // 分配成功
+                    // 初始化新分配部分的内存为0
+                    memset(constants+constantsNum,0,sizeof(char*)*BUFFER_SIZE_PER_ALLOC);
+                }else{
+                    printf("Memory re-allocation failed when writing CONSTANTS.");
+                    status=0;
+                }
+            }
+            break;
     }
+    return status;
 }

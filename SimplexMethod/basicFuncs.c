@@ -1,24 +1,25 @@
 #include "public.h"
 
-SplitResult SplitByChr(char *str, int strLen, char chr) { // (字符串,字符) 按字符分隔字符串，会返回一个二维数组
+SplitResult SplitByChr(char *str, char chr) { // (字符串,字符) 按字符分隔字符串，会返回一个二维数组
     int i;
-    int bufferSize = sizeof(char) * strLen;
+    int stringLen=strlen(str);
+    int bufferSize = sizeof(char) * stringLen;
     char *buffer = (char *) malloc(bufferSize); // 字符串暂存区
     int bufferLen = 0; // 暂存区字符数组长度
-    char **arr = (char **) malloc(sizeof(char *) * strLen); // 数组第一维
+    char **arr = (char **) malloc(sizeof(char *) * stringLen); // 数组第一维
     int arrLen = 0; // 返回二维数组第一维的大小
-    for (i = 0; i < strLen + 1; i++) {
+    for (i = 0; i < stringLen + 1; i++) {
         int currentChr;
         int lastOne = 0; // 最后一项单独处理
-        if (i < strLen) {
+        if (i < stringLen) {
             currentChr = str[i];
         } else {
             lastOne = 1;
         }
         if (lastOne || currentChr == chr) {
-            arr[arrLen] = (char *) malloc(sizeof(char) * (bufferLen + 1)); // 初始化第二维数组
+            arr[arrLen] = (char *) malloc(sizeof(char) * (bufferLen + 1)); // 初始化第二维数组（需要多一位来存放\0）
             strncpy(arr[arrLen], buffer, bufferLen); // 将字符装入第二维数组
-            arr[arrLen][bufferLen] = '\0';
+            arr[arrLen][bufferLen] = '\0'; // 手动构造成一个字符串
             memset(buffer, 0, bufferSize); // 清空字符串暂存区
             bufferLen = 0; // 暂存区长度归零
             arrLen++;
