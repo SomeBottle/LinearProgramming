@@ -6,7 +6,7 @@
 #define BUFFER_SIZE_PER_ALLOC 100 // 每次分配给字符串暂存区的内存大小
 #define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配100个
 
-char **constants = NULL; // 常数项指针数组
+char *constants = NULL; // 常数项指针数组
 int constArrLen = BUFFER_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
 int constantsNum = 0; // 常数项数量
 
@@ -17,7 +17,7 @@ int InterruptBuffer(char x);
 
 LPModel Parser(FILE *fp);
 
-int FormulaParser(LF *linearFunc, ST *subjectTo, char *str);
+ST FormulaParser(char *str);
 
 int WriteIn(LF *linearFunc, ST *subjectTo, char *str);
 
@@ -44,7 +44,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     int bufferLen = BUFFER_SIZE_PER_ALLOC; // 字符串暂存区长度，防止溢出
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
     if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
-        constants = (char **) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char *));
+        constants = (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char));
     }
     while (!feof(fp)) {
         currentChar = (char) fgetc(fp);
@@ -77,13 +77,14 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                     errorOccurs = 1;
                     break; // 解析数据失败，中止
                 }
-                readFlag = 0; // 读取完毕
             }
             printf("len:%d, Str: %s\n", strlen(buffer), buffer);
             free(buffer); // 释放内存块，抛弃当前暂存区
             bufferPointer = 0; // 初始化暂存区指针
             bufferLen = BUFFER_SIZE_PER_ALLOC; // 初始化
             buffer = RESET_BUFFER; // 重设字符串暂存区
+        } else if (currentChar == '}') { // 遇到反大括号，当前部分读取完毕
+            readFlag = 0; // 读取完毕
         }
     }
     free(buffer); // 释放暂存区
@@ -97,28 +98,83 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     return result;
 }
 
-int FormulaParser(LF *linearFunc, ST *subjectTo, char *str) { // 将方程字符串处理为对应结构体
-    int status = 1; // 返回码
+ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，返回结果是ST，记得free
     int i, len = strlen(str);
     char currentChar;
+    int writeSide = 0; // 在写入哪边，0代表关系符号左边，1代表右边
+    int cfcRead = 0; // 读取过系数的标记
+    Monomial monoBuffer = {}; // 单项的暂存区
+    ST result = { // 返回结果
+            .leftNum=0,
+            .rightNum=0,
+            .left=(Monomial *) calloc(len, sizeof(Monomial)),
+            .right=(Monomial *) calloc(len, sizeof(Monomial))
+    };
     int bufferPointer = 0; // 字符串暂存区指针
-    char *buffer = (char *) calloc(len, sizeof(char)); // 字符串暂存区，最开始分配100个
-    for (i = 0; i < len; i++) {
-        currentChar = str[i];
-        if (currentChar == '+' || currentChar == '-') { // 是加号或减号，这是每一项的划分标志
-
-        } else if (strchr(">=<", currentChar) != NULL) { // 是关系符号，这是方程左右的划分标志
-
+    char *buffer = (char *) calloc(len, sizeof(char)); // 字符串暂存区
+    for (i = 0; i < len + 1; i++) {
+        currentChar = i < len ? str[i] : '+'; // 最后len+1特殊处理，保证所有项目都被读入
+        if (strchr("+->=<", currentChar) != NULL) { // 是加号或减号或>=<，这是每一项的划分标志
+            if (bufferPointer > 0 || monoBuffer.constant) {
+                // 暂存区中有内容，这一段部分就是变量名，此时读取完毕了一项 / 或者有常量项
+                if (bufferPointer > 0 && strspn(buffer, "0123456789+-") == strlen(buffer)) {
+                    // 目前的暂存区中是一个常数项（前提：暂存区中有内容）
+                    monoBuffer.variable[0] = '\0'; // 该项没有变量名
+                    monoBuffer.coefficient = atoi(buffer); // 存入系数
+                } else {
+                    strncpy(monoBuffer.variable, buffer, 2); // 变量名最多两个字符
+                    monoBuffer.variable[2] = '\0'; // 手动构造字符串
+                }
+                cfcRead = 0; // 一项读取完毕，标记归位
+                if (writeSide == 0) { // 写到左边
+                    result.left[result.leftNum++] = monoBuffer; // 把一项存入数组，作为式子左端
+                } else if (writeSide == 1) {
+                    result.right[result.rightNum++] = monoBuffer; // 作为式子右端
+                }
+                memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
+                bufferPointer = 0; // 重置字符串缓冲区
+                Monomial newMono = {};
+                monoBuffer = newMono; // 重置单项缓冲区
+            }
+            if (currentChar == '+' || currentChar == '-') {
+                buffer[bufferPointer++] = currentChar; // 储存+-符号
+            } else if (currentChar == '<' || currentChar == '>') { // 是关系符号>或<，这是方程左右的划分标志
+                int ptr = 0;
+                char nextChar = str[i + 1]; // 查看下一项是不是还有符号
+                result.relation[ptr++] = currentChar; // 记入符号
+                if (nextChar == '=') { // 下一项是等号，那就是>=或<=
+                    result.relation[ptr++] = nextChar; // 计入符号
+                    i++; // 跳过下一项目
+                }
+                result.relation[ptr] = '\0'; // 手动构造成字符串
+                writeSide = 1; // 左边读完了，开始读右边
+            } else if (currentChar == '=') { // 是关系符号=，这是方程左右的划分标志
+                result.relation[0] = currentChar; // 存入符号
+                result.relation[1] = '\0'; // 构造成字符串
+                writeSide = 1; // 读右边
+            }
         } else {
-            buffer[bufferPointer] = currentChar; // 逐字符处理
+            if (!cfcRead && !isdigit(currentChar)) { // 如果不是数字，说明系数读取结束，清除一次buffer
+                // 此前的部分作为系数中的数字项存入monoBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
+                monoBuffer.coefficient = bufferPointer > 0 ? atoi(buffer) : 1;
+                if (strchr(constants, currentChar) != NULL) { // 当前字符属于常量
+                    monoBuffer.constant = currentChar; // 把常量作为系数的一部分储存
+                    currentChar = 0; // 字符使用后置0
+                } else {
+                    monoBuffer.constant = 0; // 没有常量就设为0
+                }
+                memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
+                bufferPointer = 0;
+                cfcRead = 1;
+            }
+            if (currentChar) {
+                buffer[bufferPointer] = currentChar; // 逐字符处理
+                bufferPointer++; // 暂存区指针后移
+            }
         }
     }
-    if (readFlag == 1) { // 处理目标函数
-    } else if (readFlag == 2) {
-
-    }
     free(buffer); // 释放暂存区
-    return status;
+    return result;
 }
 
 int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析后写入LF或者ST
@@ -134,7 +190,26 @@ int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析�
                 status = 0;
             } else if (strcmp(colonSp.split[0], "max") || strcmp(colonSp.split[0], "min")) { // 必须要是max/min
                 strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
-                FormulaParser(linearFunc, subjectTo, colonSp.split[1]); // 将公式处理成结构体
+                ST result = FormulaParser(colonSp.split[1]); // 将公式处理成结构体
+                if (strcmp(result.relation, "=") == 0) {
+                    linearFunc->left = result.left;
+                    linearFunc->right = result.right;
+                    linearFunc->leftNum = result.leftNum;
+                    linearFunc->rightNum = result.rightNum; // 结果存入linearFunc
+                    for (int i = 0; i < result.rightNum; i++) {
+                        result.right[i].variable;
+                        if (result.right[i].constant == 0) {
+                            printf("RIGHT: %d %s\n", result.right[i].coefficient,
+                                   result.right[i].variable);
+                        } else {
+                            printf("RIGHT: %d%c %s\n", result.right[i].coefficient, result.right[i].constant,
+                                   result.right[i].variable);
+                        }
+                    }
+                } else {
+                    printf("Wrong relational operator in Objective function!\n");
+                    status = 0;
+                }
             } else {
                 printf("Objective function invalid.\n");
                 status = 0;
@@ -144,19 +219,23 @@ int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析�
         case 2: // 写入ST
 
             break;
-        case 3: // 写入常数项
-            constants[constantsNum] = (char *) calloc(stringLen + 1, sizeof(char));
-            strcpy(constants[constantsNum], str); // 将常量(字符串表示)放入常量数组
+        case 3: // 写入常量项
+            if (!isalpha(str[0])) { // 常量只能是a-zA-Z的一个字母
+                printf("Only letters: [a-zA-Z] can be used in CONSTANTS.\n");
+                status = 0;
+                break;
+            }
+            constants[constantsNum] = str[0]; // 将常量(字符表示)放入常量数组
             constantsNum++;
-            if(constantsNum>=constArrLen){ // 数组不够放了！需要分配更多
-                constArrLen+=BUFFER_SIZE_PER_ALLOC;
-                constants=(char**) realloc(constants,sizeof(char*)*constArrLen);
-                if(constants!=NULL){ // 分配成功
+            if (constantsNum >= constArrLen) { // 数组不够放了！需要分配更多
+                constArrLen += BUFFER_SIZE_PER_ALLOC;
+                constants = (char *) realloc(constants, sizeof(char) * constArrLen);
+                if (constants != NULL) { // 分配成功
                     // 初始化新分配部分的内存为0
-                    memset(constants+constantsNum,0,sizeof(char*)*BUFFER_SIZE_PER_ALLOC);
-                }else{
+                    memset(constants + constantsNum, 0, sizeof(char) * BUFFER_SIZE_PER_ALLOC);
+                } else {
                     printf("Memory re-allocation failed when writing CONSTANTS.");
-                    status=0;
+                    status = 0;
                 }
             }
             break;

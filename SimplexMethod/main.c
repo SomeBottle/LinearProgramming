@@ -12,7 +12,7 @@ int main(int args, char *argv[]) {
             Parser(fileStream);
             // 释放常量constants指针数组的堆内存
             for (i = 0; i < constantsNum; i++)
-                free(constants[i]);
+                printf("CONSTANTS:%c\n", constants[i]);
             free(constants);
             constants = NULL;
         } else { // 打开文件失败
