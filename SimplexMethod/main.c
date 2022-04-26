@@ -9,7 +9,7 @@ int main(int args, char *argv[]) {
         printf("Input file: %s\n", argv[1]);
         fileStream = fopen(argv[1], "r"); // 尝试开启文件流
         if (fileStream != NULL) {
-            Parser(fileStream);
+            LPModel parsed = Parser(fileStream); // 读取并解析线性模型为结构体
             // 释放常量constants指针数组的堆内存
             for (i = 0; i < constantsNum; i++)
                 printf("CONSTANTS:%c\n", constants[i]);

@@ -29,8 +29,9 @@ typedef struct { // 约束条件
 } ST;
 
 typedef struct { // 线性规划数学模型，包括线性函数数组和约束数组
-    LF goal; // 目标函数
-    ST *constraints; // 约束
+    LF objective; // 目标函数
+    ST *subjectTo; // 约束
+    int stNum; // 约束数量
 } LPModel;
 
 typedef struct { // 分隔字符串返回结果

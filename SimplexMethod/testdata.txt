@@ -1,5 +1,5 @@
 CONSTANTS {
-	M;C;
+	M;C
 }
 
 LF {

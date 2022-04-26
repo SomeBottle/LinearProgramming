@@ -3,8 +3,9 @@
  */
 #include "public.h"
 
-#define BUFFER_SIZE_PER_ALLOC 100 // 每次分配给字符串暂存区的内存大小
+#define BUFFER_SIZE_PER_ALLOC 100 // 每次分配给字符串暂存区的元素个数
 #define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配100个
+#define ST_SIZE_PER_ALLOC 10 // 每次分配给约束SubjectTo的元素个数
 
 char *constants = NULL; // 常数项指针数组
 int constArrLen = BUFFER_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
@@ -19,7 +20,7 @@ LPModel Parser(FILE *fp);
 
 ST FormulaParser(char *str);
 
-int WriteIn(LF *linearFunc, ST *subjectTo, char *str);
+int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str);
 
 
 int InterruptBuffer(char x) { // 什么时候截断字符串暂存
@@ -37,7 +38,9 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
 
 LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     LF linearFunc; // 初始化目标函数结构体
-    ST *subjectTo = NULL; // 初始化约束结构体
+    ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
+    int stPtr = 0; // 约束数组指针
+    int stSize = ST_SIZE_PER_ALLOC; // 约束数组总长度
     int errorOccurs = 0; // 是否发生错误
     char currentChar;
     int bufferPointer = 0; // 字符串暂存区指针
@@ -72,13 +75,13 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             } else if (strcmp(buffer, "CONSTANTS") == 0) {
                 readFlag = 3; // 正在读取常量列表
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
-                int writeResult = WriteIn(&linearFunc, subjectTo, buffer);
+                int writeResult = WriteIn(&linearFunc, subjectTo, &stPtr, &stSize, buffer);
                 if (!writeResult) {
                     errorOccurs = 1;
                     break; // 解析数据失败，中止
                 }
             }
-            printf("len:%d, Str: %s\n", strlen(buffer), buffer);
+            // printf("len:%d, Str: %s\n", strlen(buffer), buffer);
             free(buffer); // 释放内存块，抛弃当前暂存区
             bufferPointer = 0; // 初始化暂存区指针
             bufferLen = BUFFER_SIZE_PER_ALLOC; // 初始化
@@ -90,10 +93,12 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     free(buffer); // 释放暂存区
     buffer = NULL;
     if (errorOccurs) { // 发生了错误
-
+        printf("WARNING: Error occurred when parsing the model.\n");
     }
     LPModel result = {
-
+            .subjectTo=subjectTo,
+            .objective=linearFunc,
+            .stNum=stPtr
     };
     return result;
 }
@@ -177,10 +182,11 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
     return result;
 }
 
-int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析后写入LF或者ST
+int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
     int status = 1; // 返回码
     int stringLen = strlen(str);
     SplitResult colonSp; // 初始化分割字符串
+    ST formulaResult;
     switch (readFlag) {
         case 1: // 写入LF
             // 根据冒号分割
@@ -190,22 +196,13 @@ int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析�
                 status = 0;
             } else if (strcmp(colonSp.split[0], "max") || strcmp(colonSp.split[0], "min")) { // 必须要是max/min
                 strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
-                ST result = FormulaParser(colonSp.split[1]); // 将公式处理成结构体
-                if (strcmp(result.relation, "=") == 0) {
-                    linearFunc->left = result.left;
-                    linearFunc->right = result.right;
-                    linearFunc->leftNum = result.leftNum;
-                    linearFunc->rightNum = result.rightNum; // 结果存入linearFunc
-                    for (int i = 0; i < result.rightNum; i++) {
-                        result.right[i].variable;
-                        if (result.right[i].constant == 0) {
-                            printf("RIGHT: %d %s\n", result.right[i].coefficient,
-                                   result.right[i].variable);
-                        } else {
-                            printf("RIGHT: %d%c %s\n", result.right[i].coefficient, result.right[i].constant,
-                                   result.right[i].variable);
-                        }
-                    }
+                formulaResult = FormulaParser(colonSp.split[1]); // 将公式处理成结构体
+                if (strcmp(formulaResult.relation, "=") == 0) {
+                    linearFunc->left = formulaResult.left;
+                    linearFunc->right = formulaResult.right;
+                    linearFunc->leftNum = formulaResult.leftNum;
+                    linearFunc->rightNum = formulaResult.rightNum; // 结果存入linearFunc
+                    printf("Successfully parsed the Objective function.\n");
                 } else {
                     printf("Wrong relational operator in Objective function!\n");
                     status = 0;
@@ -217,7 +214,18 @@ int WriteIn(LF *linearFunc, ST *subjectTo, char *str) { // 将数据(str)解析�
             freeSplitArr(&colonSp); // 用完后释放
             break;
         case 2: // 写入ST
-
+            formulaResult = FormulaParser(str); // 解析约束
+            subjectTo[(*stPtr)++] = formulaResult;
+            if (*stPtr >= *stSize) { // 约束结构体数组放不下了，需要重分配
+                (*stSize) += ST_SIZE_PER_ALLOC; // 扩充内存大小
+                subjectTo = (ST *) realloc(subjectTo, (*stSize) * sizeof(ST));
+                if (subjectTo != NULL) {
+                    memset(subjectTo + *stPtr, 0, ST_SIZE_PER_ALLOC * sizeof(ST));
+                } else { // 内存分配失败
+                    status = 0;
+                    printf("Memory re-allocation failed when parsing constraints.\n");
+                }
+            }
             break;
         case 3: // 写入常量项
             if (!isalpha(str[0])) { // 常量只能是a-zA-Z的一个字母
