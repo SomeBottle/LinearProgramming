@@ -18,6 +18,7 @@ int main(int args, char *argv[]) {
                 printf("%c ", constants[i]);
             printf("\n");
             free(constants);
+            freeModel(&parsed); // 释放LP模型分配的内存
             constants = NULL;
         } else { // 打开文件失败
             printf("File not readable or does not exist.\n");

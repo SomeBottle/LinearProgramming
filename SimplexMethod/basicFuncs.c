@@ -140,3 +140,24 @@ int printModel(LPModel model) { // 打印
     ST *subTo = model.subjectTo; // 取到约束数组指针
     return 1;
 }
+
+int freeModel(LPModel *model) { // 释放LP模型中分配的内存
+    int i;
+    // 先处理目标函数
+    LF *oFunc = &model->objective; // 地址引用目标函数结构体
+    ST *subTo = model->subjectTo;
+    oFunc->leftNum = 0;
+    oFunc->rightNum = 0;
+    free(oFunc->left); // 释放目标函数中的项集
+    free(oFunc->right);
+    for (i = 0; i < model->stNum; i++) { // 遍历释放约束条件内存
+        ST *stTemp = &subTo[i];
+        stTemp->leftNum = 0;
+        stTemp->rightNum = 0;
+        free(stTemp->left); // 释放该约束中的项集
+        free(stTemp->right);
+    }
+    free(subTo); // 释放约束指针数组占用的内存
+    model->stNum = 0;
+    return 1;
+}

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-typedef struct{ // 数字结构体（用于表示分数，小数，整数）（为了方便，整数/小数都转换为分数储存）
+typedef struct { // 数字结构体（用于表示分数，小数，整数）（为了方便，整数/小数都转换为分数储存）
     long int numerator; // 分子
     long int denominator; // 分母
     int valid; // 这个结构体是否有效（如果转换失败了valid=0）
@@ -47,7 +47,12 @@ typedef struct { // 分隔字符串返回结果
 
 
 extern SplitResult SplitByChr(char *str, char chr);
+
 extern Number Fractionize(char *str);
+
+extern int freeModel(LPModel *model);
+
 extern int freeSplitArr(SplitResult *rs);
-extern char* constants;
+
+extern char *constants;
 extern int constantsNum;
