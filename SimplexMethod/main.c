@@ -7,12 +7,16 @@ int main(int args, char *argv[]) {
     FILE *fileStream; // 定义文件指针（类型定义来自stdio）
     if (argv[1] != NULL) { // 看看命令行有没有传入文件名
         printf("Input file: %s\n", argv[1]);
+        Number testNum = Fractionize("1.345");
         fileStream = fopen(argv[1], "r"); // 尝试开启文件流
         if (fileStream != NULL) {
-            LPModel parsed = Parser(fileStream); // 读取并解析线性模型为结构体
+            // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
+            LPModel parsed = Parser(fileStream);
             // 释放常量constants指针数组的堆内存
+            printf("Freed CONSTANTS: ");
             for (i = 0; i < constantsNum; i++)
-                printf("CONSTANTS:%c\n", constants[i]);
+                printf("%c ", constants[i]);
+            printf("\n");
             free(constants);
             constants = NULL;
         } else { // 打开文件失败

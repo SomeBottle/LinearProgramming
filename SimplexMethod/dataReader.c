@@ -53,7 +53,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
         currentChar = (char) fgetc(fp);
         if (!InterruptBuffer(currentChar)) { // 字符不是空白符，推入buffer
             if (isspace(currentChar)) continue; // 跳过{ }中所有空格
-            buffer[bufferPointer] = currentChar;
+            buffer[bufferPointer] = currentChar; // 推入buffer
             bufferPointer++;
             if (bufferPointer >= bufferLen) {// 字符串暂存数组长度不够用了
                 bufferLen += BUFFER_SIZE_PER_ALLOC; // 长度续上100
@@ -67,7 +67,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                     break; // 内存重分配失败，退出
                 }
             }
-        } else if (strlen(buffer) > 0) { // 遇到空白字符, 暂存区中有内容就进行处理
+        } else if (strlen(buffer) > 0) { // 遇到空白字符或大括号或分号, 暂存区中有内容就进行处理
             if (strcmp(buffer, "LF") == 0) {
                 readFlag = 1; // 正在读取目标函数LF
             } else if (strcmp(buffer, "ST") == 0) {
@@ -86,8 +86,8 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             bufferPointer = 0; // 初始化暂存区指针
             bufferLen = BUFFER_SIZE_PER_ALLOC; // 初始化
             buffer = RESET_BUFFER; // 重设字符串暂存区
-        } else if (currentChar == '}') { // 遇到反大括号，当前部分读取完毕
-            readFlag = 0; // 读取完毕
+            if (currentChar == '}') // 遇到反大括号，当前部分读取完毕
+                readFlag = 0; // 读取完毕
         }
     }
     free(buffer); // 释放暂存区
@@ -122,15 +122,15 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
         if (strchr("+->=<", currentChar) != NULL) { // 是加号或减号或>=<，这是每一项的划分标志
             if (bufferPointer > 0 || monoBuffer.constant) {
                 // 暂存区中有内容，这一段部分就是变量名，此时读取完毕了一项 / 或者有常量项
-                if (bufferPointer > 0 && strspn(buffer, "0123456789+-") == strlen(buffer)) {
+                if (bufferPointer > 0 && strspn(buffer, "0123456789+-./") == strlen(buffer)) {
                     // 目前的暂存区中是一个常数项（前提：暂存区中有内容）
                     monoBuffer.variable[0] = '\0'; // 该项没有变量名
-                    monoBuffer.coefficient = atoi(buffer); // 存入系数
+                    monoBuffer.coefficient = Fractionize(buffer); // 存入系数
                 } else {
                     strncpy(monoBuffer.variable, buffer, 2); // 变量名最多两个字符
                     monoBuffer.variable[2] = '\0'; // 手动构造字符串
                 }
-                cfcRead = 0; // 一项读取完毕，标记归位
+                cfcRead = 0; // 一项系数读取完毕，标记归位
                 if (writeSide == 0) { // 写到左边
                     result.left[result.leftNum++] = monoBuffer; // 把一项存入数组，作为式子左端
                 } else if (writeSide == 1) {
@@ -159,9 +159,10 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
                 writeSide = 1; // 读右边
             }
         } else {
-            if (!cfcRead && !isdigit(currentChar)) { // 如果不是数字，说明系数读取结束，清除一次buffer
+            if (!cfcRead && !isdigit(currentChar) && currentChar != '.' && currentChar != '/') {
+                // 如果不是数字（包括分数除号，小数点，整数数字digit），说明系数读取结束，清除一次buffer
                 // 此前的部分作为系数中的数字项存入monoBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
-                monoBuffer.coefficient = bufferPointer > 0 ? atoi(buffer) : 1;
+                monoBuffer.coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
                 if (strchr(constants, currentChar) != NULL) { // 当前字符属于常量
                     monoBuffer.constant = currentChar; // 把常量作为系数的一部分储存
                     currentChar = 0; // 字符使用后置0
@@ -194,7 +195,7 @@ int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
             if (colonSp.len < 2) { // 目标函数没有指定maximize or minimize，无效
                 printf("Objective function invalid.\n");
                 status = 0;
-            } else if (strcmp(colonSp.split[0], "max") || strcmp(colonSp.split[0], "min")) { // 必须要是max/min
+            } else if (strcmp(colonSp.split[0], "max") == 0 || strcmp(colonSp.split[0], "min") == 0) { // 必须要是max/min
                 strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
                 formulaResult = FormulaParser(colonSp.split[1]); // 将公式处理成结构体
                 if (strcmp(formulaResult.relation, "=") == 0) {
