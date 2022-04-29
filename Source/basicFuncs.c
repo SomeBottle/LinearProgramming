@@ -204,74 +204,35 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
             }
         }
     }
-    if (result.constant != NULL && result.constant->relation == 3) {
-        // 转换结果中有常量，但常量是等号关系，例如M=3，这里就直接算，去掉常量
-        // 不过这里要等后面把Number的运算函数都写好了
-
-    }
     free(strCopy); // 释放拷贝的字符串
     return result;
 }
 
-int PrintCfc(Number numTemp, int withPlus) { // 打印系数(数字结构体,是否带上加号)
-    int constLies = 0; // 常量在分母还是分子temp
-    char constName = '\0'; // 常量名temp
-    long int numerator = numTemp.numerator;
-    long int denominator = numTemp.denominator;
-    if (numTemp.constant != NULL) { // 系数中存在常量
-        constLies = numTemp.constLies;
-        constName = numTemp.constant->name;
-    }
-    if (denominator == 1) { // 分母为1，是整数
-        if (labs(numerator) != 1) {// 系数1就不需要打印出来了
-            if (withPlus == 0) { // 第一项前面不需要+号
-                if (constName == '\0')
-                    printf("%d", numerator);
-                else
-                    printf("%d%c", numerator, constName); // 附上常量
-            } else {
-                if (constName == '\0')
-                    printf(numerator > 0 ? " + %d" : " - %d", labs(numerator));
-                else
-                    printf(numerator > 0 ? " + %d%c" : " - %d%c", labs(numerator), constName);
-            }
-        } else if (constName != '\0') { // 如果是有一项是+M，虽然系数有1的成分，但M得打印出来
-            if (withPlus == 0) {
-                printf(numerator > 0 ? "%c" : " -%c", labs(constName));
-            } else {
-                printf(numerator > 0 ? " + %c" : " - %c", labs(constName));
-            }
-        }
-    } else {
-        if (constName != '\0') { // 是分数
-            if (constLies == 0) {// 常量在分子
-                if (withPlus == 0) { // 不带正号
-                    printf("%d%c/%d", numerator, constName, denominator);
-                } else { // 带正号
-                    printf(numerator > 0 ? " + %d%c/%d" : " - %d%c/%d", labs(numerator), constName, denominator);
-                }
-            } else { // 常量在分母
-                if (withPlus == 0) { // 不带正号
-                    printf("%d/%d%c", numerator, denominator, constName);
-                } else { // 带正号
-                    printf(numerator > 0 ? " + %d/%d%c" : " - %d/%d%c", labs(numerator), denominator, constName);
-                }
-            }
-        } else {
-            if (withPlus == 0) { // 不带正号
-                printf("%d/%d", numerator, denominator);
-            } else {
-                printf(numerator > 0 ? " + %d/%d" : " - %d/%d", labs(numerator), denominator);
-            }
-        }
-    }
-    return 1;
-}
-
 int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
     int i;
+    long int numeTemp, denoTemp, liesTemp;
+    char constName = '\0';
     for (i = 0; i < itemNum; i++) {
-        PrintCfc(item[i].coefficient, i);
+        numeTemp = item[i].coefficient.numerator;
+        denoTemp = item[i].coefficient.denominator;
+        liesTemp = item[i].coefficient.constLies;
+        if (item[i].coefficient.constant != NULL)
+            constName = item[i].coefficient.constant->name;
+        // 先把分子打印出来
+        if (i == 0) { // 是第一项
+            printf("%d", numeTemp);
+        } else {
+            printf(numeTemp > 0 ? " + %d" : " - %d", labs(numeTemp));
+        }
+        // 如果常量在分子，打印一下
+        if (constName != '\0' && liesTemp == 0)
+            printf("%c", constName);
+        // 有分母就打印分母
+        if (denoTemp != 1) {
+            printf("/%d", denoTemp);
+            if (constName != '\0' && liesTemp == 1)
+                printf("%c", constName);
+        }
         if (strlen(item[i].variable) > 0) // 有变量名的话
             printf("[%s]", item[i].variable); // 打印变量名
     }

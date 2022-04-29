@@ -1,5 +1,5 @@
-/* 读取并处理初始目标函数及约束的模块 --> 化标准型
- * 非常感谢文章：https://www.bilibili.com/read/cv5287905
+/* 读取并化简处理初始目标函数及约束的模块
+ * SomeBottle
  */
 #include "public.h"
 
@@ -49,6 +49,12 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
     if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
         constants = (Constant *) calloc(CONSTANTS_SIZE_PER_ALLOC, sizeof(Constant));
+        Constant cstTemp = {
+                .relation=4,
+                .name='M',
+                .val=Fractionize("0") // 大M法专用M>0
+        };
+        constants[constantsNum++] = cstTemp; // 默认创造一个常量
     }
     while (!feof(fp)) {
         currentChar = (char) fgetc(fp);
@@ -73,8 +79,6 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                 readFlag = 1; // 正在读取目标函数LF
             } else if (strcmp(buffer, "ST") == 0) {
                 readFlag = 2; // 正在读取约束ST
-            } else if (strcmp(buffer, "CONSTANTS") == 0) {
-                readFlag = 3; // 正在读取常量列表
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
                 int writeResult = WriteIn(&linearFunc, subjectTo, &stPtr, &stSize, buffer);
                 if (!writeResult) {
@@ -165,25 +169,17 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
             }
         } else {
             if (!cfcRead && !isdigit(currentChar)
-                && currentChar != '.' && currentChar != '/'
-                && !(InConstants(currentChar) != NULL && nextChar == '/')) {
+                && currentChar != '.' && currentChar != '/') {
                 /* 前面几个表达式判断如果正在读取系数(cfcRead=0)，不是数字部分（包括分数除号，小数点，整数数字digit），
                  说明系数读取结束(cfcRead=1)，计入系数，清除一次buffer*/
-                // 最后两项表达式判断当前的字符是否常量且下一项是否"/"，用于解决 3M/4 这种情况，甚至是3M/4M这种情况，不支持 M3/4这种想不开的写法
                 // 此前的部分作为系数中的数字项存入monoBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
-                if (InConstants(currentChar) != NULL) { // 当前字符属于常量
-                    buffer[bufferPointer++] = currentChar; // 把常量放进字符数组
-                    currentChar = 0; // 字符使用后置0
-                }
                 monoBuffer.coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0;
-                cfcRead = 1;
+                cfcRead = 1; // 系数读取完毕
             }
-            if (currentChar) {
-                buffer[bufferPointer] = currentChar; // 逐字符处理
-                bufferPointer++; // 暂存区指针后移
-            }
+            buffer[bufferPointer] = currentChar; // 逐字符处理
+            bufferPointer++; // 暂存区指针后移
         }
     }
     free(buffer); // 释放暂存区
@@ -192,10 +188,7 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
 
 int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
     int status = 1; // 返回码
-    int stringLen = strlen(str);
-    char *constantPtr = NULL; // 常量临时指针
     SplitResult colonSp; // 初始化分割字符串
-    Constant cstTemp; // 常量temp
     ST formulaResult;
     switch (readFlag) {
         case 1: // 写入LF
@@ -234,48 +227,6 @@ int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
                 } else { // 内存分配失败
                     status = 0;
                     printf("Memory re-allocation failed when parsing constraints.\n");
-                }
-            }
-            break;
-        case 3: // 写入常量项
-            if (!isalpha(str[0])) { // 常量只能是a-zA-Z的一个字母
-                printf("Only letters: [a-zA-Z] can be used in CONSTANTS.\n");
-                status = 0;
-                break;
-            }
-            // 当前字符串至少有三位，如M>3 或 M = 3
-            if (stringLen > 2) {
-                if (strchr("<>", str[1]) != NULL) { // 形式如同M>3 或 M>=3
-                    if (stringLen > 3 && str[2] == '=') { // 字符串可能至少有4位，例如M>=3
-                        constantPtr = str + 3; // 字符指针指向第4位
-                        cstTemp.relation = (str[1] == '<') ? 2 : 5; // 2代表<=, 5代表>=
-                    } else { // 形式如M>3
-                        constantPtr = str + 2; // 字符指针指向第3位
-                        cstTemp.relation = (str[1] == '<') ? 1 : 4; // 1代表<, 4代表>
-                    }
-                } else if (str[1] == '=') { // 如 M=3
-                    constantPtr = str + 2; // 字符指针指向第3位
-                    cstTemp.relation = 3; // 3 代表 =
-                }
-            }
-            cstTemp.name = str[0]; // 将常量(字符表示)放入常量结构体
-            if (constantPtr != NULL) { // 有声明常量M的大小约束
-                cstTemp.val = Fractionize(constantPtr); // 将后面的部分转换为分数
-            } else { // 无大小约束，默认>0
-                cstTemp.relation = 4; // 代表 >
-                cstTemp.val = Fractionize("0"); // 分数 0/1
-            }
-            constants[constantsNum] = cstTemp; // 结构体存入数组
-            constantsNum++;
-            if (constantsNum >= constArrLen) { // 数组不够放了！需要分配更多
-                constArrLen += CONSTANTS_SIZE_PER_ALLOC;
-                constants = (Constant *) realloc(constants, sizeof(Constant) * constArrLen);
-                if (constants != NULL) { // 分配成功
-                    // 初始化新分配部分的内存为0
-                    memset(constants + constantsNum, 0, sizeof(Constant) * CONSTANTS_SIZE_PER_ALLOC);
-                } else {
-                    printf("Memory re-allocation failed when writing CONSTANTS.");
-                    status = 0;
                 }
             }
             break;

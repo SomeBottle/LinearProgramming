@@ -25,7 +25,7 @@ int main(int args, char *argv[]) {
         }
         fclose(fileStream);
     } else {
-        printf("Lacking of argument.\nUsage: %s <filename>\n", argv[0]);
+        printf("Missing argument. \nUsage: %s <filename>\n", argv[0]);
     }
     system("pause");
     return 0;
