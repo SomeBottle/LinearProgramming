@@ -220,16 +220,16 @@ int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
             constName = item[i].coefficient.constant->name;
         // 先把分子打印出来
         if (i == 0) { // 是第一项
-            printf("%d", numeTemp);
+            printf("%ld", numeTemp);
         } else {
-            printf(numeTemp > 0 ? " + %d" : " - %d", labs(numeTemp));
+            printf(numeTemp > 0 ? " + %ld" : " - %ld", labs(numeTemp));
         }
         // 如果常量在分子，打印一下
         if (constName != '\0' && liesTemp == 0)
             printf("%c", constName);
         // 有分母就打印分母
         if (denoTemp != 1) {
-            printf("/%d", denoTemp);
+            printf("/%ld", denoTemp);
             if (constName != '\0' && liesTemp == 1)
                 printf("%c", constName);
         }
