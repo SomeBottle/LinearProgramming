@@ -19,7 +19,9 @@ int InterruptBuffer(char x);
 
 LPModel Parser(FILE *fp);
 
-ST FormulaParser(char *str);
+ST FormulaParser(char *str, int *valid);
+
+ST FormulaSimplify(ST formula, int *valid);
 
 int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str);
 
@@ -108,7 +110,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     return result;
 }
 
-ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，返回结果是ST，记得free
+ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应结构体，返回结果是ST，记得free
     int i, len = strlen(str);
     char currentChar, nextChar;
     int writeSide = 0; // 在写入哪边，0代表关系符号左边，1代表右边
@@ -183,7 +185,20 @@ ST FormulaParser(char *str) { // 将方程字符串处理为对应结构体，�
         }
     }
     free(buffer); // 释放暂存区
+    // Formula校验部分
+    result = FormulaSimplify(result, valid);
     return result;
+}
+
+ST FormulaSimplify(ST formula, int *valid) {
+    // 校验，化简处理
+    if ((formula.leftNum < 1 || formula.rightNum < 1) ||// 左边和右边都至少要有一项
+        strlen(formula.relation) < 1) // 缺少关系符号，方程无效
+    {
+        *valid = 0; // 该方程无效
+    }else{
+
+    }
 }
 
 int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
@@ -199,7 +214,7 @@ int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
                 status = 0;
             } else if (strcmp(colonSp.split[0], "max") == 0 || strcmp(colonSp.split[0], "min") == 0) { // 必须要是max/min
                 strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
-                formulaResult = FormulaParser(colonSp.split[1]); // 将公式处理成结构体
+                formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
                 if (strcmp(formulaResult.relation, "=") == 0) {
                     linearFunc->left = formulaResult.left;
                     linearFunc->right = formulaResult.right;
@@ -217,7 +232,7 @@ int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
             freeSplitArr(&colonSp); // 用完后释放
             break;
         case 2: // 写入ST
-            formulaResult = FormulaParser(str); // 解析约束
+            formulaResult = FormulaParser(str, &status); // 解析约束
             subjectTo[(*stPtr)++] = formulaResult;
             if (*stPtr >= *stSize) { // 约束结构体数组放不下了，需要重分配
                 (*stSize) += ST_SIZE_PER_ALLOC; // 扩充内存大小

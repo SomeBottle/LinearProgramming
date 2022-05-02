@@ -96,7 +96,9 @@ extern int IsConstItem(char *str);
 
 extern int PrintModel(LPModel model);
 
-extern long int CommonDiv(long int num1, long int num2);
+extern long int GCD(long int num1, long int num2);
+
+extern long int LCM(long int num1, long int num2);
 
 // Number Operations Funcs below:
 

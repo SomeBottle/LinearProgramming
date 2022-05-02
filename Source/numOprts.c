@@ -3,7 +3,7 @@
  */
 #include "public.h"
 
-int OFAdd(long prev, long after) { // 加运算溢出判断，返回1代表溢出
+int OFAdd(long prev, long after) { // 加运算溢出判断，返回1则代表溢出
     if (prev > 0 && after > LONG_MAX - prev) { // 溢出上界
         return 1;
     } else if (prev < 0 && after < LONG_MIN - prev) { // 溢出下界
@@ -17,8 +17,8 @@ SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     SubNum result = {.valid=1};
     long int numeMult; // 相乘后的分子
     long int denoMult; // 相乘后的分母
-    long int divisor1 = CommonDiv(prevNume, nextDeno);
-    long int divisor2 = CommonDiv(prevDeno, nextNume);
+    long int divisor1 = GCD(prevNume, nextDeno);
+    long int divisor2 = GCD(prevDeno, nextNume);
     prevNume /= divisor1;
     nextDeno /= divisor1;
     prevDeno /= divisor2;
@@ -41,17 +41,30 @@ SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     long int prevAdded; // 通分后前一项的分子
     long int nextAdded; // 通分后后一项的分子
     long int numeAdded; // 相加后的分子
+    long int prevNumeFactor; // 通分时前一项分子要乘的因数
+    long int nextNumeFactor; // 通分时下一项分子要乘的因数
     long int denoExpanded; // 通分后的分母
+    long int commonMul; // 最小公倍数
     long int divisor; // 相加后约分用的最大公约数
     SubNum result = {.valid=1};
-    denoExpanded = prevDeno * nextDeno; // 通分
+    commonMul = LCM(prevDeno, nextDeno); // 算出最小公倍数
+    denoExpanded = commonMul; // 通分后用作分母
     if (prevDeno != 0 && denoExpanded / prevDeno != nextDeno) { // 相乘运算溢出判断
         result.valid = 0;
     }
-    prevAdded = prevNume * nextDeno;
-    nextAdded = nextNume * prevDeno;
-    if ((prevNume != 0 && prevAdded / prevNume != nextDeno) ||
-        (nextNume != 0 && nextAdded / nextNume != prevDeno)) {
+    /* 比如 1/3 + 1/2
+     *    prevAdded   nextAdded
+     *      _|_       _|_
+     * 通分：1*2/3*2 + 1*3/2*3
+     *        ↑         ↑
+     * prevNumeFactor nextNumeFactor
+     */
+    prevNumeFactor = commonMul / prevDeno;
+    prevAdded = prevNume * prevNumeFactor;
+    nextNumeFactor = commonMul / nextDeno;
+    nextAdded = nextNume * nextNumeFactor;
+    if ((prevNume != 0 && prevAdded / prevNume != prevNumeFactor) ||
+        (nextNume != 0 && nextAdded / nextNume != nextNumeFactor)) {
         // 相乘发生溢出
         result.valid = 0;
     }
@@ -59,7 +72,7 @@ SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno) {
         result.valid = 0;
     } else {
         numeAdded = prevAdded + nextAdded; // 分子相加
-        divisor = CommonDiv(numeAdded, denoExpanded); // 找出分子分母最大公约数
+        divisor = GCD(numeAdded, denoExpanded); // 找出分子分母最大公约数
         numeAdded /= divisor;
         denoExpanded /= divisor; // 约分
         result.numerator = numeAdded;

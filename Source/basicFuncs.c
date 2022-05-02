@@ -70,7 +70,7 @@ int IsConstItem(char *str) { // 判断整个字符串是不是一个常数项
     return 1;
 }
 
-long int CommonDiv(long int num1, long int num2) {
+long int GCD(long int num1, long int num2) {
     // 寻找两数最大公约数(欧几里得算法)
     long int dividend; // 被除数
     long int divisor; // 除数
@@ -88,6 +88,12 @@ long int CommonDiv(long int num1, long int num2) {
         divisor = remainder ? remainder : divisor;
     } while (remainder != 0);
     return divisor;
+}
+
+long int LCM(long int num1, long int num2) {
+    // 最大公约数*最小公倍数=两整数乘积
+    long int divisor = GCD(num1, num2);
+    return (num1 / divisor) * num2;
 }
 
 Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3M/4M 3/4...
@@ -135,7 +141,7 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
             denominator = strtol(divPtr, &convEndPtr, 10);
             if (*convEndPtr == '\0' && numerator != 0) {
                 // 分母也能完全转换为整数，且分子不为0
-                cmDivisor = labs(CommonDiv(numerator, denominator));
+                cmDivisor = labs(GCD(numerator, denominator));
                 // 找出最大公约数（绝对值）
                 denominator = denominator / cmDivisor;
                 numerator = numerator / cmDivisor; // 约分操作
@@ -178,9 +184,9 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
                 /* 这里的原理就像这样：-2.45 -分数形式-> -245/100 -约分-> -49/20 */
                 if (divPtr != NULL) {
                     int digits = strlen(divPtr); // 小数位数
-                    denominator = (long int) pow(10, digits); // 计算出分母
+                    denominator = (long int) pow(10.0, (double) digits); // 计算出分母
                     numerator = (long int) (decimal * denominator); // 计算出分子
-                    cmDivisor = labs(CommonDiv(numerator, denominator));
+                    cmDivisor = labs(GCD(numerator, denominator));
                     // 最大公约数约分，公约数规定为正数，防止符号问题
                     denominator = denominator / cmDivisor;
                     numerator = numerator / cmDivisor;
