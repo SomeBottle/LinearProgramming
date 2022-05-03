@@ -72,27 +72,27 @@ int IsConstItem(char *str) { // 判断整个字符串是不是一个常数项
 
 long int GCD(long int num1, long int num2) {
     // 寻找两数最大公约数(欧几里得算法)
-    long int dividend; // 被除数
-    long int divisor; // 除数
-    long int remainder; // 余数
-    if (num1 > num2) {
-        dividend = num1;
-        divisor = num2;
-    } else {
-        dividend = num2;
-        divisor = num1;
+    long int temp;
+    num1 = labs(num1); // GCD规定为正整数
+    num2 = labs(num2);
+    if (num2 > num1) {
+        temp = num2;
+        num2 = num1;
+        num1 = temp;
     }
-    do {
-        remainder = dividend % divisor;
-        dividend = divisor;
-        divisor = remainder ? remainder : divisor;
-    } while (remainder != 0);
-    return divisor;
+    while (num2) {
+        temp = num2;
+        num2 = num1 % num2;
+        num1 = temp;
+    }
+    return num1;
 }
 
 long int LCM(long int num1, long int num2) {
     // 最大公约数*最小公倍数=两整数乘积
     long int divisor = GCD(num1, num2);
+    num1 = labs(num1); // 一般LCM也被限定为正整数
+    num2 = labs(num2);
     return (num1 / divisor) * num2;
 }
 

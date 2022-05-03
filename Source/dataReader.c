@@ -195,8 +195,9 @@ ST FormulaSimplify(ST formula, int *valid) {
     if ((formula.leftNum < 1 || formula.rightNum < 1) ||// 左边和右边都至少要有一项
         strlen(formula.relation) < 1) // 缺少关系符号，方程无效
     {
+        printf("Simplification Failed: Formula invalid.\n");
         *valid = 0; // 该方程无效
-    }else{
+    } else {
 
     }
 }
