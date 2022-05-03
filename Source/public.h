@@ -100,6 +100,8 @@ extern long int GCD(long int num1, long int num2);
 
 extern long int LCM(long int num1, long int num2);
 
+extern void *MemJoin(void *prev, int prevLen, void *next, int nextLen, size_t eachSize);
+
 // Number Operations Funcs below:
 
 extern int OFAdd(long prev, long after);

@@ -45,6 +45,17 @@ int freeSplitArr(SplitResult *rs) { // 门当对户地释放SplitByChr的返回�
     return 1;
 }
 
+void *MemJoin(void *prev, int prevLen, void *next, int nextLen, size_t eachSize) {
+    // 将两段内存连接成一块（重分配），返回指向新分配内存开头的指针
+    // (前一段内存的起址,前一段内存长度,后一段内存的起址,后一段内存长度,类型储存字节大小)
+    void *joined = malloc(eachSize * (prevLen + nextLen));
+    size_t prevSize = eachSize * prevLen;
+    memcpy(joined, prev, prevSize); // 复制前一段
+    memcpy(joined + prevSize, next, eachSize * nextLen); // 复制后一段
+    // 返回void指针，记得free！
+    return joined;
+}
+
 Constant *InConstants(char chr) { // 查找字符chr在常量数组中对应的地址，找不到返回NULL
     Constant *ptr = NULL;
     if (constants != NULL) {

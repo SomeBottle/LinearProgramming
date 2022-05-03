@@ -198,7 +198,16 @@ ST FormulaSimplify(ST formula, int *valid) {
         printf("Simplification Failed: Formula invalid.\n");
         *valid = 0; // 该方程无效
     } else {
+        int i;
+        int numeCommonDiv; // 所有分子的最大公约数
+        int denoCommonDiv; // 所有分母的最大公约数
+        Number numTemp; // 临时存放数字
+        // 临时把左右两边连接起来，便于遍历
+        Monomial *joined = MemJoin(formula.left, formula.leftNum, formula.right, formula.rightNum, sizeof(Monomial));
+        // 连接后的数组长度
+        unsigned int joinedLen = formula.leftNum + formula.rightNum;
 
+        free(joined); // 用完后释放内存是好习惯
     }
 }
 
