@@ -258,7 +258,7 @@ int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
 
 int PrintModel(LPModel model) { // 打印LP模型
     int i;
-    LF oFunc = model.objective; // 临时拿到目标函数
+    OF oFunc = model.objective; // 临时拿到目标函数
     ST *subTo = model.subjectTo; // 取到约束数组指针
     printf("Objective Function:\n\t%s:", oFunc.type == 1 ? "max" : "min"); // 目标函数类型
     PrintMonomial(oFunc.left, oFunc.leftNum); // 一项一项打印出来
@@ -294,7 +294,7 @@ int PrintModel(LPModel model) { // 打印LP模型
 int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
     int i;
     // 先处理目标函数
-    LF *oFunc = &model->objective; // 地址引用目标函数结构体
+    OF *oFunc = &model->objective; // 地址引用目标函数结构体
     ST *subTo = model->subjectTo;
     oFunc->leftNum = 0;
     oFunc->rightNum = 0;

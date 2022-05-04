@@ -23,7 +23,7 @@ ST FormulaParser(char *str, int *valid);
 
 ST FormulaSimplify(ST formula, int *valid);
 
-int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str);
+int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str);
 
 
 int InterruptBuffer(char x) { // 什么时候截断字符串暂存
@@ -40,7 +40,7 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
 }
 
 LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
-    LF linearFunc; // 初始化目标函数结构体
+    OF linearFunc; // 初始化目标函数结构体
     ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
     int stPtr = 0; // 约束数组指针
     int stSize = ST_SIZE_PER_ALLOC; // 约束数组总长度
@@ -77,7 +77,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                 }
             }
         } else if (strlen(buffer) > 0) { // 遇到空白字符或大括号或分号, 暂存区中有内容就进行处理
-            if (strcmp(buffer, "LF") == 0) {
+            if (strcmp(buffer, "OF") == 0) {
                 readFlag = 1; // 正在读取目标函数LF
             } else if (strcmp(buffer, "ST") == 0) {
                 readFlag = 2; // 正在读取约束ST
@@ -220,7 +220,7 @@ ST FormulaSimplify(ST formula, int *valid) {
     }
 }
 
-int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
+int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
     int status = 1; // 返回码
     SplitResult colonSp; // 初始化分割字符串
     ST formulaResult;

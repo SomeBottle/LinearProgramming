@@ -55,7 +55,7 @@ typedef struct { // 目标线性函数
     Monomial *right;
     int rightNum; // 右侧数量
     short int type; // 最大值(max用1代表)还是最小值(min用-1代表)
-} LF;
+} OF;
 
 typedef struct { // 约束条件
     // 分为方程左边和右边两个Monomial数组,加上一个符号字符数组
@@ -68,7 +68,7 @@ typedef struct { // 约束条件
 } ST;
 
 typedef struct { // 线性规划数学模型，包括线性函数数组和约束数组
-    LF objective; // 目标函数
+    OF objective; // 目标函数
     ST *subjectTo; // 约束
     int stNum; // 约束数量
 } LPModel;
