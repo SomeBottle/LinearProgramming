@@ -54,7 +54,7 @@ typedef struct { // 目标线性函数
     int leftNum; // 左侧数量（目标函数左边是z，所以这里只能是1）
     Monomial *right;
     int rightNum; // 右侧数量
-    char type[4]; // 最大值(max)还是最小值(min)
+    short int type; // 最大值(max用1代表)还是最小值(min用-1代表)
 } LF;
 
 typedef struct { // 约束条件
@@ -63,7 +63,8 @@ typedef struct { // 约束条件
     int leftNum; // 左侧数量
     Monomial *right; // 方程右边
     int rightNum; // 右侧数量
-    char relation[3]; // 关系符号
+    short int relation;
+    // 关系符号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
 } ST;
 
 typedef struct { // 线性规划数学模型，包括线性函数数组和约束数组

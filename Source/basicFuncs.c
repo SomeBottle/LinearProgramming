@@ -260,7 +260,7 @@ int PrintModel(LPModel model) { // 打印LP模型
     int i;
     LF oFunc = model.objective; // 临时拿到目标函数
     ST *subTo = model.subjectTo; // 取到约束数组指针
-    printf("Objective Function:\n\t%s:", oFunc.type); // 目标函数类型
+    printf("Objective Function:\n\t%s:", oFunc.type == 1 ? "max" : "min"); // 目标函数类型
     PrintMonomial(oFunc.left, oFunc.leftNum); // 一项一项打印出来
     printf(" = "); // 打印等号
     PrintMonomial(oFunc.right, oFunc.rightNum);
@@ -268,7 +268,23 @@ int PrintModel(LPModel model) { // 打印LP模型
     for (i = 0; i < model.stNum; i++) {
         printf("\t");
         PrintMonomial(subTo[i].left, subTo[i].leftNum); // 一项一项打印出来
-        printf(" %s ", subTo[i].relation); // 打印关系符号
+        switch (subTo[i].relation) {
+            case -2:
+                printf(" %s ", "<="); // 打印关系符号
+                break;
+            case -1:
+                printf(" %s ", "<");
+                break;
+            case 1:
+                printf(" %s ", ">");
+                break;
+            case 2:
+                printf(" %s ", ">=");
+                break;
+            case 3:
+                printf(" %s ", "=");
+                break;
+        }
         PrintMonomial(subTo[i].right, subTo[i].rightNum);
         printf("\n");
     }

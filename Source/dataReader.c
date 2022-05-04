@@ -56,7 +56,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                 .name='M',
                 .val=Fractionize("0") // 大M法专用M>0
         };
-        constants[constantsNum++] = cstTemp; // 默认创造一个常量
+        constants[constantsNum++] = cstTemp; // 默认创造一个常量大M
     }
     while (!feof(fp)) {
         currentChar = (char) fgetc(fp);
@@ -122,6 +122,7 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
             .left=(Monomial *) calloc(len, sizeof(Monomial)),
             .right=(Monomial *) calloc(len, sizeof(Monomial))
     };
+    short int thanMark; // 小于号thanMark=-1，大于号thanMark=1
     int bufferPointer = 0; // 字符串暂存区指针
     char *buffer = (char *) calloc(len, sizeof(char)); // 字符串暂存区
     for (i = 0; i < len + 1; i++) {
@@ -154,19 +155,18 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
             }
             if (currentChar == '+' || currentChar == '-') {
                 buffer[bufferPointer++] = currentChar; // 储存+-符号
-            } else if (currentChar == '<' || currentChar == '>') { // 是关系符号>或<，这是方程左右的划分标志
+            } else if (currentChar == '<' && (thanMark = -1) ||
+                       currentChar == '>' && (thanMark = 1)) { // 是关系符号>或<，这是方程左右的划分标志
                 int ptr = 0;
                 char nextChar = str[i + 1]; // 查看下一项是不是还有符号
-                result.relation[ptr++] = currentChar; // 记入符号
                 if (nextChar == '=') { // 下一项是等号，那就是>=或<=
-                    result.relation[ptr++] = nextChar; // 计入符号
+                    thanMark *= 2; // 小于号-1*2=小于等于号-2; 大于号1*2=大于等于号2
                     i++; // 跳过下一项目
                 }
-                result.relation[ptr] = '\0'; // 手动构造成字符串
+                result.relation = thanMark; // 记入符号
                 writeSide = 1; // 左边读完了，开始读右边
             } else if (currentChar == '=') { // 是关系符号=，这是方程左右的划分标志
-                result.relation[0] = currentChar; // 存入符号
-                result.relation[1] = '\0'; // 构造成字符串
+                result.relation = 3; // 存入符号
                 writeSide = 1; // 读右边
             }
         } else {
@@ -192,21 +192,30 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
 
 ST FormulaSimplify(ST formula, int *valid) {
     // 校验，化简处理
-    if ((formula.leftNum < 1 || formula.rightNum < 1) ||// 左边和右边都至少要有一项
-        strlen(formula.relation) < 1) // 缺少关系符号，方程无效
+    if ((formula.leftNum < 1 || formula.rightNum < 1) || // 左边和右边都至少要有一项
+        !formula.relation) // 缺少关系符号，方程无效
     {
         printf("Simplification Failed: Formula invalid.\n");
         *valid = 0; // 该方程无效
     } else {
         int i;
-        int numeCommonDiv; // 所有分子的最大公约数
-        int denoCommonDiv; // 所有分母的最大公约数
         Number numTemp; // 临时存放数字
         // 临时把左右两边连接起来，便于遍历
         Monomial *joined = MemJoin(formula.left, formula.leftNum, formula.right, formula.rightNum, sizeof(Monomial));
         // 连接后的数组长度
         unsigned int joinedLen = formula.leftNum + formula.rightNum;
-
+        long int numeCommonDiv = joined[0].coefficient.numerator; // 所有分子的最大公约数
+        long int denoCommonDiv = joined[0].coefficient.denominator; // 所有分母的最大公约数
+        for (i = 1; i < joinedLen; i++) {
+            // 找所有分子的最大公约数和所有分母的最大公约数
+            if (joined[i].coefficient.constant != NULL) { // 用户输入的方程不允许有常量
+                printf("Simplification Failed: Manual added CONSTANTs are not allowed.\n");
+                *valid = 0;
+                break;
+            }
+            numeCommonDiv = GCD(numeCommonDiv, joined[i].coefficient.numerator);
+            denoCommonDiv = GCD(denoCommonDiv, joined[i].coefficient.denominator);
+        }
         free(joined); // 用完后释放内存是好习惯
     }
 }
@@ -223,9 +232,13 @@ int WriteIn(LF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
                 printf("Objective function invalid.\n");
                 status = 0;
             } else if (strcmp(colonSp.split[0], "max") == 0 || strcmp(colonSp.split[0], "min") == 0) { // 必须要是max/min
-                strcpy(linearFunc->type, colonSp.split[0]); // 写入max/min
+                if (strcmp(colonSp.split[0], "max") == 0) {
+                    linearFunc->type = 1; // 1 代表max
+                } else if (strcmp(colonSp.split[0], "min") == 0) {
+                    linearFunc->type = -1; // -1 代表min
+                }
                 formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
-                if (strcmp(formulaResult.relation, "=") == 0) {
+                if (formulaResult.relation == 3) {
                     linearFunc->left = formulaResult.left;
                     linearFunc->right = formulaResult.right;
                     linearFunc->leftNum = formulaResult.leftNum;
