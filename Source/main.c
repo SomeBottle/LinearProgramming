@@ -11,8 +11,10 @@ int main(int args, char *argv[]) {
         if (fileStream != NULL) {
             // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
             LPModel parsed = Parser(fileStream);
+            if (parsed.valid) {
+                PrintModel(parsed);
+            }
             // 释放常量constants指针数组的堆内存
-            PrintModel(parsed);
             printf("Freed CONSTANTS: ");
             for (i = 0; i < constantsNum; i++)
                 printf("%c ", constants[i].name);

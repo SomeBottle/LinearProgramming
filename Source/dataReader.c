@@ -44,7 +44,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
     int stPtr = 0; // 约束数组指针
     int stSize = ST_SIZE_PER_ALLOC; // 约束数组总长度
-    int errorOccurs = 0; // 是否发生错误
+    int valid = 1; // 模型是否有效
     char currentChar;
     int bufferPointer = 0; // 字符串暂存区指针
     int bufferLen = BUFFER_SIZE_PER_ALLOC; // 字符串暂存区长度，防止溢出
@@ -72,7 +72,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
                     memset(buffer + bufferPointer, 0, sizeof(char) * BUFFER_SIZE_PER_ALLOC);
                 } else {
                     printf("Memory re-allocation failed when reading file.");
-                    errorOccurs = 1;
+                    valid = 0;
                     break; // 内存重分配失败，退出
                 }
             }
@@ -84,7 +84,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
                 int writeResult = WriteIn(&linearFunc, subjectTo, &stPtr, &stSize, buffer);
                 if (!writeResult) {
-                    errorOccurs = 1;
+                    valid = 0;
                     break; // 解析数据失败，中止
                 }
             }
@@ -99,13 +99,14 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     }
     free(buffer); // 释放暂存区
     buffer = NULL;
-    if (errorOccurs) { // 发生了错误
+    if (!valid) { // 发生了错误
         printf("WARNING: Error occurred when parsing the model.\n");
     }
     LPModel result = {
             .subjectTo=subjectTo,
             .objective=linearFunc,
-            .stNum=stPtr
+            .stNum=stPtr,
+            .valid=valid
     };
     return result;
 }
@@ -216,8 +217,17 @@ ST FormulaSimplify(ST formula, int *valid) {
             numeCommonDiv = GCD(numeCommonDiv, joined[i].coefficient.numerator);
             denoCommonDiv = GCD(denoCommonDiv, joined[i].coefficient.denominator);
         }
+        for (i = 0; i < formula.leftNum; i++) { // 处理式左边
+            formula.left[i].coefficient.numerator /= numeCommonDiv; // 约分子
+            formula.left[i].coefficient.denominator /= denoCommonDiv; // 约分母
+        }
+        for (i = 0; i < formula.rightNum; i++) { // 处理式右边
+            formula.right[i].coefficient.numerator /= numeCommonDiv; // 约分子
+            formula.right[i].coefficient.denominator /= denoCommonDiv; // 约分母
+        }
         free(joined); // 用完后释放内存是好习惯
     }
+    return formula;
 }
 
 int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
@@ -239,11 +249,20 @@ int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
                 }
                 formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
                 if (formulaResult.relation == 3) {
-                    linearFunc->left = formulaResult.left;
-                    linearFunc->right = formulaResult.right;
-                    linearFunc->leftNum = formulaResult.leftNum;
-                    linearFunc->rightNum = formulaResult.rightNum; // 结果存入linearFunc
-                    printf("Successfully parsed the Objective function.\n");
+                    if (formulaResult.leftNum == 1 && // OF左边只能有z一项
+                        Decimalize(formulaResult.left[0].coefficient) == 1) { // 左边z系数必须为1
+                        linearFunc->left = formulaResult.left;
+                        linearFunc->right = formulaResult.right;
+                        linearFunc->leftNum = formulaResult.leftNum;
+                        linearFunc->rightNum = formulaResult.rightNum; // 结果存入linearFunc
+                    } else {
+                        linearFunc->left = NULL;
+                        linearFunc->right = NULL;
+                        linearFunc->leftNum = 0;
+                        linearFunc->rightNum = 0;
+                        printf("Nonstandard Objective function!\n");
+                        status = 0;
+                    }
                 } else {
                     printf("Wrong relational operator in Objective function!\n");
                     status = 0;

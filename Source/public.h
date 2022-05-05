@@ -71,6 +71,7 @@ typedef struct { // 线性规划数学模型，包括线性函数数组和约束
     OF objective; // 目标函数
     ST *subjectTo; // 约束
     int stNum; // 约束数量
+    short int valid; // 是否有效
 } LPModel;
 
 typedef struct { // 分隔字符串返回结果
@@ -85,11 +86,13 @@ extern int constantsNum;
 
 extern SplitResult SplitByChr(char *str, char chr);
 
+extern int freeSplitArr(SplitResult *rs);
+
 extern Number Fractionize(char *str);
 
-extern int FreeModel(LPModel *model);
+extern double Decimalize(Number num);
 
-extern int freeSplitArr(SplitResult *rs);
+extern int FreeModel(LPModel *model);
 
 extern Constant *InConstants(char chr);
 

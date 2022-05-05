@@ -225,6 +225,23 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
     return result;
 }
 
+double Decimalize(Number num) { // 将Number结构体转成double浮点数
+    double result = 0;
+    if (num.valid) {
+        if (num.constant == NULL) {
+            if (num.denominator) // 分母不能为0
+                result = (double) num.numerator / num.denominator;
+            else
+                printf("Decimalize Failed: Numerator can't be divided by zero.");
+        } else { // 不允许有常量
+            printf("Decimalize Failed: Number with CONSTANT is not allowed here.");
+        }
+    } else { // 数字无效
+        printf("Decimalize Failed: Number invalid.");
+    }
+    return result;
+}
+
 int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
     int i;
     long int numeTemp, denoTemp, liesTemp;
