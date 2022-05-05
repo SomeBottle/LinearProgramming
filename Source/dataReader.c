@@ -3,10 +3,10 @@
  */
 #include "public.h"
 
-#define BUFFER_SIZE_PER_ALLOC 100 // 每次分配给字符串暂存区的元素个数
+#define BUFFER_SIZE_PER_ALLOC 50 // 每次分配给字符串暂存区的元素个数
 #define CONSTANTS_SIZE_PER_ALLOC 10 // 每次分配给常数项暂存区的元素个数
 #define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配100个
-#define ST_SIZE_PER_ALLOC 10 // 每次分配给约束SubjectTo的元素个数
+#define ST_SIZE_PER_ALLOC 5 // 每次分配给约束SubjectTo的元素个数
 
 Constant *constants = NULL; // 常数项指针数组
 int constArrLen = CONSTANTS_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
@@ -23,7 +23,7 @@ ST FormulaParser(char *str, int *valid);
 
 ST FormulaSimplify(ST formula, int *valid);
 
-int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str);
+int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str);
 
 
 int InterruptBuffer(char x) { // 什么时候截断字符串暂存
@@ -82,7 +82,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             } else if (strcmp(buffer, "ST") == 0) {
                 readFlag = 2; // 正在读取约束ST
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
-                int writeResult = WriteIn(&linearFunc, subjectTo, &stPtr, &stSize, buffer);
+                int writeResult = WriteIn(&linearFunc, &subjectTo, &stPtr, &stSize, buffer);
                 if (!writeResult) {
                     valid = 0;
                     break; // 解析数据失败，中止
@@ -114,7 +114,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
 ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应结构体，返回结果是ST，记得free
     int i, len = strlen(str);
     char currentChar, nextChar;
-    int writeSide = 0; // 在写入哪边，0代表关系符号左边，1代表右边
+    int writeSide = 0; // 在写入哪边，0 代表关系符号左边，1 代表右边
     int cfcRead = 0; // 读取过系数的标记
     Monomial monoBuffer = {}; // 单项的暂存区
     ST result = { // 返回结果
@@ -128,7 +128,6 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
     char *buffer = (char *) calloc(len, sizeof(char)); // 字符串暂存区
     for (i = 0; i < len + 1; i++) {
         currentChar = i < len ? str[i] : '+'; // 最后len+1特殊处理，保证所有项目都被读入
-        nextChar = (i + 1 < len) ? str[i + 1] : '\0'; // 下一个字符
         if (strchr("+->=<", currentChar) != NULL) { // 是加号或减号或>=<，这是每一项的划分标志
             if (bufferPointer > 0 || monoBuffer.coefficient.valid) {
                 // 暂存区中有内容，这一段部分就是变量名，此时读取完毕了一项，适用于 3M x1这种情况
@@ -159,10 +158,11 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
             } else if (currentChar == '<' && (thanMark = -1) ||
                        currentChar == '>' && (thanMark = 1)) { // 是关系符号>或<，这是方程左右的划分标志
                 int ptr = 0;
-                char nextChar = str[i + 1]; // 查看下一项是不是还有符号
+                nextChar = str[i + 1]; // 查看下一项是不是还有符号
                 if (nextChar == '=') { // 下一项是等号，那就是>=或<=
                     thanMark *= 2; // 小于号-1*2=小于等于号-2; 大于号1*2=大于等于号2
-                    i++; // 跳过下一项目
+                    nextChar = '\0';
+                    i++; // 跳过下一个项目
                 }
                 result.relation = thanMark; // 记入符号
                 writeSide = 1; // 左边读完了，开始读右边
@@ -230,7 +230,7 @@ ST FormulaSimplify(ST formula, int *valid) {
     return formula;
 }
 
-int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
+int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
     int status = 1; // 返回码
     SplitResult colonSp; // 初始化分割字符串
     ST formulaResult;
@@ -275,12 +275,12 @@ int WriteIn(OF *linearFunc, ST *subjectTo, int *stPtr, int *stSize, char *str) {
             break;
         case 2: // 写入ST
             formulaResult = FormulaParser(str, &status); // 解析约束
-            subjectTo[(*stPtr)++] = formulaResult;
+            (*subjectTo)[(*stPtr)++] = formulaResult;
             if (*stPtr >= *stSize) { // 约束结构体数组放不下了，需要重分配
                 (*stSize) += ST_SIZE_PER_ALLOC; // 扩充内存大小
-                subjectTo = (ST *) realloc(subjectTo, (*stSize) * sizeof(ST));
-                if (subjectTo != NULL) {
-                    memset(subjectTo + *stPtr, 0, ST_SIZE_PER_ALLOC * sizeof(ST));
+                *subjectTo = (ST *) realloc(*subjectTo, (*stSize) * sizeof(ST));
+                if (*subjectTo != NULL) {
+                    memset(*subjectTo + *stPtr, 0, ST_SIZE_PER_ALLOC * sizeof(ST));
                 } else { // 内存分配失败
                     status = 0;
                     printf("Memory re-allocation failed when parsing constraints.\n");
