@@ -3,11 +3,6 @@
  */
 #include "public.h"
 
-#define BUFFER_SIZE_PER_ALLOC 50 // 每次分配给字符串暂存区的元素个数
-#define CONSTANTS_SIZE_PER_ALLOC 10 // 每次分配给常数项暂存区的元素个数
-#define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配100个
-#define ST_SIZE_PER_ALLOC 5 // 每次分配给约束SubjectTo的元素个数
-
 Constant *constants = NULL; // 常数项指针数组
 int constArrLen = CONSTANTS_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
 int constantsNum = 0; // 常数项数量

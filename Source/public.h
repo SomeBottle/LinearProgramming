@@ -14,6 +14,11 @@
     getchar()
 #endif
 
+#define BUFFER_SIZE_PER_ALLOC 50 // 每次分配给字符串暂存区的元素个数
+#define CONSTANTS_SIZE_PER_ALLOC 10 // 每次分配给常数项暂存区的元素个数
+#define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配50个
+#define ST_SIZE_PER_ALLOC 5 // 每次分配给约束SubjectTo的元素个数
+
 struct inc_constant; // 因为Number和Constant是有互相包含的
 struct inc_number; // 需要用到结构体不完全声明(incomplete)
 
