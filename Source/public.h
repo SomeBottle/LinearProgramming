@@ -57,18 +57,18 @@ typedef struct { // 方程中的一项，包括系数，变量名
 
 typedef struct { // 目标线性函数
     // 分为等号左边和等号右边两个Monomial数组，加上一个求最大值还是最小值
-    Monomial *left;
+    Monomial **left;
     int leftNum; // 左侧数量（目标函数左边是z，所以这里只能是1）
-    Monomial *right;
+    Monomial **right;
     int rightNum; // 右侧数量
     short int type; // 最大值(max用1代表)还是最小值(min用-1代表)
 } OF;
 
 typedef struct { // 约束条件
     // 分为方程左边和右边两个Monomial数组,加上一个符号字符数组
-    Monomial *left;
+    Monomial **left;
     int leftNum; // 左侧数量
-    Monomial *right; // 方程右边
+    Monomial **right; // 方程右边
     int rightNum; // 右侧数量
     short int relation;
     // 关系符号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
@@ -89,6 +89,11 @@ typedef struct { // 分隔字符串返回结果
 extern Constant *constants;
 extern int constantsNum;
 
+// DataReader Funcs below:
+
+extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
+extern void ConstraintsTrans(LPModel *model);
+
 // Basic Funcs below:
 
 extern SplitResult SplitByChr(char *str, char chr);
@@ -104,6 +109,8 @@ extern int FreeModel(LPModel *model);
 extern Constant *InConstants(char chr);
 
 extern int IsConstItem(char *str);
+
+extern size_t RmvMonomial(Monomial **monos, size_t len, int pos);
 
 extern int PrintModel(LPModel model);
 

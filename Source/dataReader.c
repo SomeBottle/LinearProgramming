@@ -34,6 +34,24 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
     return (!bracket && isspace(x)) || x == ';';
 }
 
+void ConstraintsTrans(LPModel *model) {
+    // 对LP模型中的约束部分进行移项处理，保证关系符号左边都是变量，而右边是常数项
+    int i, j, k;
+    ST *temp = NULL;
+    Monomial *monoTemp = NULL;
+    for (i = 0; i < model->stNum; i++) {
+        temp = model->subjectTo + i;
+        for (j = 0; j < temp->leftNum; j++) { // 检查约束左边有没有常数项
+            monoTemp = temp->left[j];
+            if (strlen(monoTemp->variable) == 0) { // 没有变量名，是常数项
+                // 移除式子左边的对应项目
+                temp->leftNum = RmvMonomial(temp->left, temp->leftNum, j);
+                temp->right[temp->rightNum++] = monoTemp; // 把该项移动到式子右边
+            }
+        }
+    }
+}
+
 LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     OF linearFunc; // 初始化目标函数结构体
     ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
@@ -111,12 +129,12 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
     char currentChar, nextChar;
     int writeSide = 0; // 在写入哪边，0 代表关系符号左边，1 代表右边
     int cfcRead = 0; // 读取过系数的标记
-    Monomial monoBuffer = {}; // 单项的暂存区
+    Monomial *monoBuffer = (Monomial *) calloc(1, sizeof(Monomial)); // 单项的暂存区
     ST result = { // 返回结果
             .leftNum=0,
             .rightNum=0,
-            .left=(Monomial *) calloc(len, sizeof(Monomial)),
-            .right=(Monomial *) calloc(len, sizeof(Monomial))
+            .left=(Monomial **) calloc(len, sizeof(Monomial *)),
+            .right=(Monomial **) calloc(len, sizeof(Monomial *))
     };
     short int thanMark; // 小于号thanMark=-1，大于号thanMark=1
     int bufferPointer = 0; // 字符串暂存区指针
@@ -124,18 +142,18 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
     for (i = 0; i < len + 1; i++) {
         currentChar = i < len ? str[i] : '+'; // 最后len+1特殊处理，保证所有项目都被读入
         if (strchr("+->=<", currentChar) != NULL) { // 是加号或减号或>=<，这是每一项的划分标志
-            if (bufferPointer > 0 || monoBuffer.coefficient.valid) {
+            if (bufferPointer > 0 || monoBuffer->coefficient.valid) {
                 // 暂存区中有内容，这一段部分就是变量名，此时读取完毕了一项，适用于 3M x1这种情况
                 // 或者有纯常数项(monoBuffer.coefficient)，适用于3M这种只有常数项的情况
-                if (bufferPointer == 0 && monoBuffer.coefficient.valid) {
+                if (bufferPointer == 0 && monoBuffer->coefficient.valid) {
                     // 目前的暂存区中是一个常数项（前提：暂存区中没有内容）
-                    monoBuffer.variable[0] = '\0'; // 该项没有变量名
+                    monoBuffer->variable[0] = '\0'; // 该项没有变量名
                 } else if (IsConstItem(buffer)) { // buffer中储存的是一个常数项，针对-1.35这种情况
-                    monoBuffer.coefficient = Fractionize(buffer); // 转换为分数存入系数
-                    monoBuffer.variable[0] = '\0'; // 该项没有变量名
+                    monoBuffer->coefficient = Fractionize(buffer); // 转换为分数存入系数
+                    monoBuffer->variable[0] = '\0'; // 该项没有变量名
                 } else {
-                    strncpy(monoBuffer.variable, buffer, 3); // 变量名最多3个字符
-                    monoBuffer.variable[3] = '\0'; // 手动构造字符串
+                    strncpy(monoBuffer->variable, buffer, 3); // 变量名最多3个字符
+                    monoBuffer->variable[3] = '\0'; // 手动构造字符串
                 }
                 cfcRead = 0; // 一项系数读取完毕，标记归位
                 if (writeSide == 0) { // 写到左边
@@ -145,8 +163,7 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
                 }
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0; // 重置字符串缓冲区
-                Monomial newMono = {};
-                monoBuffer = newMono; // 重置单项缓冲区
+                monoBuffer = calloc(1, sizeof(Monomial)); // 重置单项缓冲区
             }
             if (currentChar == '+' || currentChar == '-') {
                 buffer[bufferPointer++] = currentChar; // 储存+-符号
@@ -171,7 +188,7 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
                 /* 前面几个表达式判断如果正在读取系数(cfcRead=0)，不是数字部分（包括分数除号，小数点，整数数字digit），
                  说明系数读取结束(cfcRead=1)，计入系数，清除一次buffer*/
                 // 此前的部分作为系数中的数字项存入monoBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
-                monoBuffer.coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
+                monoBuffer->coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0;
                 cfcRead = 1; // 系数读取完毕
@@ -181,6 +198,7 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
         }
     }
     free(buffer); // 释放暂存区
+    free(monoBuffer);
     // Formula校验部分
     result = FormulaSimplify(result, valid);
     return result;
@@ -197,28 +215,29 @@ ST FormulaSimplify(ST formula, int *valid) {
         int i;
         Number numTemp; // 临时存放数字
         // 临时把左右两边连接起来，便于遍历
-        Monomial *joined = MemJoin(formula.left, formula.leftNum, formula.right, formula.rightNum, sizeof(Monomial));
+        Monomial **joined = (Monomial **) MemJoin(formula.left, formula.leftNum, formula.right, formula.rightNum,
+                                                  sizeof(Monomial *));
         // 连接后的数组长度
         unsigned int joinedLen = formula.leftNum + formula.rightNum;
-        long int numeCommonDiv = joined[0].coefficient.numerator; // 所有分子的最大公约数
-        long int denoCommonDiv = joined[0].coefficient.denominator; // 所有分母的最大公约数
+        long int numeCommonDiv = joined[0]->coefficient.numerator; // 所有分子的最大公约数
+        long int denoCommonDiv = joined[0]->coefficient.denominator; // 所有分母的最大公约数
         for (i = 1; i < joinedLen; i++) {
             // 找所有分子的最大公约数和所有分母的最大公约数
-            if (joined[i].coefficient.constant != NULL) { // 用户输入的方程不允许有常量
+            if (joined[i]->coefficient.constant != NULL) { // 用户输入的方程不允许有常量
                 printf("Simplification Failed: Manual added CONSTANTs are not allowed.\n");
                 *valid = 0;
                 break;
             }
-            numeCommonDiv = GCD(numeCommonDiv, joined[i].coefficient.numerator);
-            denoCommonDiv = GCD(denoCommonDiv, joined[i].coefficient.denominator);
+            numeCommonDiv = GCD(numeCommonDiv, joined[i]->coefficient.numerator);
+            denoCommonDiv = GCD(denoCommonDiv, joined[i]->coefficient.denominator);
         }
         for (i = 0; i < formula.leftNum; i++) { // 处理式左边
-            formula.left[i].coefficient.numerator /= numeCommonDiv; // 约分子
-            formula.left[i].coefficient.denominator /= denoCommonDiv; // 约分母
+            formula.left[i]->coefficient.numerator /= numeCommonDiv; // 约分子
+            formula.left[i]->coefficient.denominator /= denoCommonDiv; // 约分母
         }
         for (i = 0; i < formula.rightNum; i++) { // 处理式右边
-            formula.right[i].coefficient.numerator /= numeCommonDiv; // 约分子
-            formula.right[i].coefficient.denominator /= denoCommonDiv; // 约分母
+            formula.right[i]->coefficient.numerator /= numeCommonDiv; // 约分子
+            formula.right[i]->coefficient.denominator /= denoCommonDiv; // 约分母
         }
         free(joined); // 用完后释放内存是好习惯
     }
@@ -245,7 +264,7 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
                 formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
                 if (formulaResult.relation == 3) {
                     if (formulaResult.leftNum == 1 && // OF左边只能有z一项
-                        Decimalize(formulaResult.left[0].coefficient) == 1) { // 左边z系数必须为1
+                        Decimalize(formulaResult.left[0]->coefficient) == 1) { // 左边z系数必须为1
                         linearFunc->left = formulaResult.left;
                         linearFunc->right = formulaResult.right;
                         linearFunc->leftNum = formulaResult.leftNum;
@@ -255,7 +274,7 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
                         linearFunc->right = NULL;
                         linearFunc->leftNum = 0;
                         linearFunc->rightNum = 0;
-                        printf("Nonstandard Objective function!\n");
+                        printf("Non-standard Objective function!\n");
                         status = 0;
                     }
                 } else {

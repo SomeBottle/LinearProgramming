@@ -1,6 +1,5 @@
 #include "public.h"
 
-extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 
 int main(int args, char *argv[]) {
     int i;
@@ -13,7 +12,7 @@ int main(int args, char *argv[]) {
             InitVarDict();
             // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
             LPModel parsed = Parser(fileStream);
-            if (parsed.valid) {
+            if (parsed.valid) { // LP模型有效
                 PrintModel(parsed);
             }
             // 释放常量constants指针数组的堆内存
@@ -29,8 +28,8 @@ int main(int args, char *argv[]) {
         }
         fclose(fileStream);
     } else {
-        printf("Missing argument. \nUsage: %s <filename>\n", argv[0]);
+        printf("Missing argument. \nUsage: \n\t%s <filename>\n\n", argv[0]);
     }
-    system("pause");
+    PAUSE;
     return 0;
 }

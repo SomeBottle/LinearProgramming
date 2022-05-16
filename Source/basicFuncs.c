@@ -242,16 +242,28 @@ double Decimalize(Number num) { // 将Number结构体转成double浮点数
     return result;
 }
 
-int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
+size_t RmvMonomial(Monomial **monos, size_t len, int pos) {
+    // (Monomial指针, 数组长度, 移除位置)
+    // 从Monomial数组中移除某一项，比如从约束式子左边移去一项
+    int ptr1, ptr2 = 0; // 双指针
+    for (ptr1 = 0; ptr1 < len; ptr1++) {
+        if (ptr1 != pos) {
+            monos[ptr2++] = monos[ptr1];
+        }
+    }
+    return ptr2; // 数组的新长度
+}
+
+int PrintMonomial(Monomial **item, int itemNum) { // 打印单项
     int i;
     long int numeTemp, denoTemp, liesTemp;
     char constName = '\0';
     for (i = 0; i < itemNum; i++) {
-        numeTemp = item[i].coefficient.numerator;
-        denoTemp = item[i].coefficient.denominator;
-        liesTemp = item[i].coefficient.constLies;
-        if (item[i].coefficient.constant != NULL)
-            constName = item[i].coefficient.constant->name;
+        numeTemp = item[i]->coefficient.numerator;
+        denoTemp = item[i]->coefficient.denominator;
+        liesTemp = item[i]->coefficient.constLies;
+        if (item[i]->coefficient.constant != NULL)
+            constName = item[i]->coefficient.constant->name;
         // 先把分子打印出来
         if (i == 0) { // 是第一项
             printf("%ld", numeTemp);
@@ -267,8 +279,8 @@ int PrintMonomial(Monomial *item, int itemNum) { // 打印单项
             if (constName != '\0' && liesTemp == 1)
                 printf("%c", constName);
         }
-        if (strlen(item[i].variable) > 0) // 有变量名的话
-            printf("[%s]", item[i].variable); // 打印变量名
+        if (strlen(item[i]->variable) > 0) // 有变量名的话
+            printf("[%s]", item[i]->variable); // 打印变量名
     }
     return 1;
 }
@@ -309,7 +321,7 @@ int PrintModel(LPModel model) { // 打印LP模型
 }
 
 int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
-    int i;
+    int i, j;
     // 先处理目标函数
     OF *oFunc = &model->objective; // 地址引用目标函数结构体
     ST *subTo = model->subjectTo;
@@ -318,7 +330,13 @@ int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
     free(oFunc->left); // 释放目标函数中的项集
     free(oFunc->right);
     for (i = 0; i < model->stNum; i++) { // 遍历释放约束条件内存
-        ST *stTemp = &subTo[i];
+        ST *stTemp = subTo + i;
+        for (j = 0; j < stTemp->leftNum; j++) { // 释放所有的项
+            free(stTemp->left[j]);
+        }
+        for (j = 0; j < stTemp->rightNum; j++) {
+            free(stTemp->right[j]);
+        }
         stTemp->leftNum = 0;
         stTemp->rightNum = 0;
         free(stTemp->left); // 释放该约束中的项集
