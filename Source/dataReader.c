@@ -45,7 +45,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     int bufferLen = BUFFER_SIZE_PER_ALLOC; // 字符串暂存区长度，防止溢出
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
     if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
-        constants = (Constant *) calloc(CONSTANTS_SIZE_PER_ALLOC, sizeof(Constant));
+        constants = (Constant *) calloc(CONSTANTS_SIZE_PER_ALLOC, sizeof(Constant*));
         Constant cstTemp = {
                 .relation=4,
                 .name='M',

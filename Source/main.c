@@ -9,6 +9,8 @@ int main(int args, char *argv[]) {
         printf("Input file: %s\n", argv[1]);
         fileStream = fopen(argv[1], "r"); // 尝试开启文件流
         if (fileStream != NULL) {
+            // 初始化变量约束哈希表
+            InitVarDict();
             // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
             LPModel parsed = Parser(fileStream);
             if (parsed.valid) {

@@ -19,6 +19,8 @@
 #define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) // 字符串暂存区，最开始分配50个
 #define ST_SIZE_PER_ALLOC 5 // 每次分配给约束SubjectTo的元素个数
 
+#define VAR_HASH_TABLE_LEN 210 // 变量哈希数组长度
+
 struct inc_constant; // 因为Number和Constant是有互相包含的
 struct inc_number; // 需要用到结构体不完全声明(incomplete)
 
@@ -122,3 +124,7 @@ extern Number NSub(Number prev, Number next);
 extern Number NMul(Number prev, Number next);
 
 extern Number NDiv(Number prev, Number next);
+
+// hashTable Funcs below:
+
+#include "hashTable.h"
