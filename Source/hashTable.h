@@ -1,5 +1,6 @@
 /*
  * 这里放一些hashTable需要用到的结构体
+ * - SomeBottle
  */
 
 typedef struct var_item { // 变量名字典键值对项目
@@ -16,3 +17,5 @@ extern VarItem *CreateVarItem(char *varName, short int relation, int num);
 extern unsigned int PutVarItem(VarItem *item);
 
 extern VarItem *GetVarItem(char *key);
+
+extern void DelVarDict();

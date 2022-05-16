@@ -20,6 +20,26 @@ void InitVarDict() { // 初始化变量约束哈希表
     varDict.table = (VarItem **) calloc(VAR_HASH_TABLE_LEN, sizeof(VarItem *));
 }
 
+void DelVarDict() { // 销毁变量约束哈希表
+    int i;
+    for (i = 0; i < varDict.tableSize; i++) {
+        VarItem *temp;
+        VarItem *temp2;
+        temp = varDict.table[i];
+        if (temp != NULL) {
+            while (temp != NULL) { // 遍历释放
+                temp2 = temp;
+                temp = temp->next;
+                free(temp2->keyName); // 释放变量名
+                free(temp2); // 释放链地址节点
+            }
+        }
+    }
+    free(varDict.table);
+    varDict.table = NULL;
+    varDict.tableSize = 0;
+}
+
 unsigned int VarHash(char *varName) {
     // 由变量名算出对应哈希，利用折叠法
     int i, temp;

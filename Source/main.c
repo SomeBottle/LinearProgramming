@@ -21,7 +21,7 @@ int main(int args, char *argv[]) {
             for (i = 0; i < constantsNum; i++)
                 printf("%c ", constants[i].name);
             printf("\n");
-            free(constants);
+            free(constants); // 释放常量数组
             FreeModel(&parsed); // 释放LP模型分配的内存
             constants = NULL;
         } else { // 打开文件失败
