@@ -7,12 +7,10 @@ Constant *constants = NULL; // 常数项指针数组
 int constArrLen = CONSTANTS_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
 int constantsNum = 0; // 常数项数量
 
-// 正在读取哪个部分，为1代表在读目标函数LF，为2代表在读约束ST，3则代表在读取常量CONSTANTS，分开处理。
+// 正在读取哪个部分，为1代表在读目标函数OF，为2代表在读约束ST，3则代表在读取常量CONSTANTS，分开处理。
 static int readFlag = 0;
 
 int InterruptBuffer(char x);
-
-LPModel Parser(FILE *fp);
 
 ST FormulaParser(char *str, int *valid);
 
@@ -36,24 +34,87 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
 
 void ConstraintsTrans(LPModel *model) {
     // 对LP模型中的约束部分进行移项处理，保证关系符号左边都是变量，而右边是常数项
+    // 同时合并同类项
     int i, j, k;
     ST *temp = NULL;
-    Monomial *monoTemp = NULL;
+    Term *termTemp = NULL;
     for (i = 0; i < model->stNum; i++) {
         temp = model->subjectTo + i;
-        for (j = 0; j < temp->leftNum; j++) { // 检查约束左边有没有常数项
-            monoTemp = temp->left[j];
-            if (strlen(monoTemp->variable) == 0) { // 没有变量名，是常数项
+        for (j = 0; j < temp->leftLen; j++) { // 检查约束左边有没有常数项
+            termTemp = temp->left[j];
+            if (strlen(termTemp->variable) == 0) { // 没有变量名，是常数项，往右边移动
                 // 移除式子左边的对应项目
-                temp->leftNum = RmvMonomial(temp->left, temp->leftNum, j);
-                temp->right[temp->rightNum++] = monoTemp; // 把该项移动到式子右边
+                temp->leftLen = RmvTerm(temp->left, temp->leftLen, j, 0);
+                termTemp->coefficient = NInv(termTemp->coefficient); // 移项后取相反数
+                temp->right[temp->rightLen++] = termTemp; // 把该项移动到式子右边
             }
+        }
+        for (j = 0; j < temp->rightLen; j++) {
+            termTemp = temp->right[j];
+            if (strlen(termTemp->variable) != 0) { // 有变量名，非常数项，往左边移动
+                temp->rightLen = RmvTerm(temp->right, temp->rightLen, j, 0);
+                termTemp->coefficient = NInv(termTemp->coefficient); // 取相反数
+                temp->left[temp->leftLen++] = termTemp; // 移动到式子左边
+            }
+        }
+        if (temp->leftLen > 0 && temp->rightLen > 0) { // 式子左右两侧必须要有项目，保证约束完整性
+            // 合并左边同类项：全都是带变量的
+            for (j = 0; j < temp->leftLen; j++) {
+                for (k = j + 1; k < temp->leftLen; k++) {
+                    if (strcmp(temp->left[j]->variable, temp->left[k]->variable) == 0) { // 找到同类项
+                        // 系数相加
+                        temp->left[j]->coefficient = NAdd(temp->left[j]->coefficient, temp->left[k]->coefficient);
+                        temp->leftLen = RmvTerm(temp->left, temp->leftLen, k, 1); // 移除多余的项目
+                        k--; // 去除某一项后遍历的位置也要前移一位
+                    }
+                }
+                // 读取用户数据时是不会有常量M这类的，所以只需要判断numerator和denominator
+                if (!temp->left[j]->coefficient.valid) { // 有项目的系数存在问题
+                    printf("ERROR: Invalid coefficient appeared in the left hand side of the CONSTRAINT (ST Line: %d)\n",
+                           i + 1);
+                    model->valid = 0; // 无效
+                    break;
+                }
+
+                if (temp->left[j]->coefficient.numerator == 0) {
+                    // 剔除无效项（系数为0）
+                    temp->leftLen = RmvTerm(temp->left, temp->leftLen, j, 1);
+                    j--; // 去除某一项后遍历的位置也要前移一位
+                }
+            }
+            // 合并右边同类项：全都是常数项
+            for (j = temp->rightLen - 1; j > 0; j--) { // 倒序遍历
+                temp->right[0]->coefficient = NAdd(temp->right[0]->coefficient, temp->right[j]->coefficient);
+                free(temp->right[j]); // 释放参与合并了的项
+                temp->rightLen--;
+            }
+            // 检查约束左边在合并同类项后是否还有项目
+            if (temp->leftLen <= 0) {
+                printf("ERROR: No term left in the left hand side of the CONSTRAINT (ST Line: %d) after combining similar terms.\n",
+                       i + 1);
+                model->valid = 0; // 无效
+            }
+            // 检查约束右边的常数项是否有效(valid)
+            if (!temp->right[0]->coefficient.valid) {
+                // 运算错误时(比如分母出现0)，数字就会无效
+                printf("ERROR: Division by zero appeared in the right hand side of the CONSTRAINT (ST Line: %d).\n",
+                       i + 1);
+                model->valid = 0;
+            }
+        } else { // 有约束不完整
+            printf("ERROR: LPModel invalid due to the incomplete CONSTRAINT (ST Line: %d).\n", i + 1);
+            model->valid = 0;
         }
     }
 }
 
 LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
-    OF linearFunc; // 初始化目标函数结构体
+    OF linearFunc = {
+            .left=NULL,
+            .right=NULL,
+            .leftLen=0,
+            .rightLen=0
+    }; // 初始化目标函数结构体
     ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
     int stPtr = 0; // 约束数组指针
     int stSize = ST_SIZE_PER_ALLOC; // 约束数组总长度
@@ -91,7 +152,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             }
         } else if (strlen(buffer) > 0) { // 遇到空白字符或大括号或分号, 暂存区中有内容就进行处理
             if (strcmp(buffer, "OF") == 0) {
-                readFlag = 1; // 正在读取目标函数LF
+                readFlag = 1; // 正在读取目标函数OF
             } else if (strcmp(buffer, "ST") == 0) {
                 readFlag = 2; // 正在读取约束ST
             } else if (readFlag != 0) { // 交给对应的函数将数据读入结构体
@@ -106,14 +167,23 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             bufferPointer = 0; // 初始化暂存区指针
             bufferLen = BUFFER_SIZE_PER_ALLOC; // 初始化
             buffer = RESET_BUFFER; // 重设字符串暂存区
-            if (currentChar == '}') // 遇到反大括号，当前部分读取完毕
-                readFlag = 0; // 读取完毕
+        }
+        if (currentChar == '}') { // 遇到反大括号，当前部分读取完毕
+            readFlag = 0; // 读取完毕
         }
     }
     free(buffer); // 释放暂存区
     buffer = NULL;
+    if (linearFunc.leftLen == 0) { // 没有读到目标函数
+        valid = 0;
+        printf("MISSING DATA: Objective Function not found.\n");
+    }
+    if (stPtr == 0) {
+        valid = 0;
+        printf("MISSING DATA: Constraints not found.\n");
+    }
     if (!valid) { // 发生了错误
-        printf("WARNING: Error occurred when parsing the model.\n");
+        printf("Error occurred when parsing the model.\n");
     }
     LPModel result = {
             .subjectTo=subjectTo,
@@ -129,12 +199,12 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
     char currentChar, nextChar;
     int writeSide = 0; // 在写入哪边，0 代表关系符号左边，1 代表右边
     int cfcRead = 0; // 读取过系数的标记
-    Monomial *monoBuffer = (Monomial *) calloc(1, sizeof(Monomial)); // 单项的暂存区
+    Term *termBuffer = (Term *) calloc(1, sizeof(Term)); // 单项的暂存区
     ST result = { // 返回结果
-            .leftNum=0,
-            .rightNum=0,
-            .left=(Monomial **) calloc(len, sizeof(Monomial *)),
-            .right=(Monomial **) calloc(len, sizeof(Monomial *))
+            .leftLen=0,
+            .rightLen=0,
+            .left=(Term **) calloc(len, sizeof(Term *)),
+            .right=(Term **) calloc(len, sizeof(Term *))
     };
     short int thanMark; // 小于号thanMark=-1，大于号thanMark=1
     int bufferPointer = 0; // 字符串暂存区指针
@@ -142,38 +212,36 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
     for (i = 0; i < len + 1; i++) {
         currentChar = i < len ? str[i] : '+'; // 最后len+1特殊处理，保证所有项目都被读入
         if (strchr("+->=<", currentChar) != NULL) { // 是加号或减号或>=<，这是每一项的划分标志
-            if (bufferPointer > 0 || monoBuffer->coefficient.valid) {
+            if (bufferPointer > 0 || termBuffer->coefficient.valid) {
                 // 暂存区中有内容，这一段部分就是变量名，此时读取完毕了一项，适用于 3M x1这种情况
-                // 或者有纯常数项(monoBuffer.coefficient)，适用于3M这种只有常数项的情况
-                if (bufferPointer == 0 && monoBuffer->coefficient.valid) {
+                // 或者有纯常数项(termBuffer.coefficient)，适用于3M这种只有常数项的情况
+                if (bufferPointer == 0 && termBuffer->coefficient.valid) {
                     // 目前的暂存区中是一个常数项（前提：暂存区中没有内容）
-                    monoBuffer->variable[0] = '\0'; // 该项没有变量名
+                    termBuffer->variable[0] = '\0'; // 该项没有变量名
                 } else if (IsConstItem(buffer)) { // buffer中储存的是一个常数项，针对-1.35这种情况
-                    monoBuffer->coefficient = Fractionize(buffer); // 转换为分数存入系数
-                    monoBuffer->variable[0] = '\0'; // 该项没有变量名
+                    termBuffer->coefficient = Fractionize(buffer); // 转换为分数存入系数
+                    termBuffer->variable[0] = '\0'; // 该项没有变量名
                 } else {
-                    strncpy(monoBuffer->variable, buffer, 3); // 变量名最多3个字符
-                    monoBuffer->variable[3] = '\0'; // 手动构造字符串
+                    strncpy(termBuffer->variable, buffer, 3); // 变量名最多3个字符
+                    termBuffer->variable[3] = '\0'; // 手动构造字符串
                 }
                 cfcRead = 0; // 一项系数读取完毕，标记归位
                 if (writeSide == 0) { // 写到左边
-                    result.left[result.leftNum++] = monoBuffer; // 把一项存入数组，作为式子左端
+                    result.left[result.leftLen++] = termBuffer; // 把一项存入数组，作为式子左端
                 } else if (writeSide == 1) {
-                    result.right[result.rightNum++] = monoBuffer; // 作为式子右端
+                    result.right[result.rightLen++] = termBuffer; // 作为式子右端
                 }
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0; // 重置字符串缓冲区
-                monoBuffer = calloc(1, sizeof(Monomial)); // 重置单项缓冲区
+                termBuffer = calloc(1, sizeof(Term)); // 重置单项缓冲区
             }
             if (currentChar == '+' || currentChar == '-') {
                 buffer[bufferPointer++] = currentChar; // 储存+-符号
             } else if (currentChar == '<' && (thanMark = -1) ||
                        currentChar == '>' && (thanMark = 1)) { // 是关系符号>或<，这是方程左右的划分标志
-                int ptr = 0;
                 nextChar = str[i + 1]; // 查看下一项是不是还有符号
                 if (nextChar == '=') { // 下一项是等号，那就是>=或<=
                     thanMark *= 2; // 小于号-1*2=小于等于号-2; 大于号1*2=大于等于号2
-                    nextChar = '\0';
                     i++; // 跳过下一个项目
                 }
                 result.relation = thanMark; // 记入符号
@@ -187,8 +255,8 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
                 && currentChar != '.' && currentChar != '/') {
                 /* 前面几个表达式判断如果正在读取系数(cfcRead=0)，不是数字部分（包括分数除号，小数点，整数数字digit），
                  说明系数读取结束(cfcRead=1)，计入系数，清除一次buffer*/
-                // 此前的部分作为系数中的数字项存入monoBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
-                monoBuffer->coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
+                // 此前的部分作为系数中的数字项存入termBuffer，如果buffer中没有字符串，也就是没有写系数，那就默认是1
+                termBuffer->coefficient = bufferPointer > 0 ? Fractionize(buffer) : Fractionize("1");
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0;
                 cfcRead = 1; // 系数读取完毕
@@ -198,7 +266,7 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
         }
     }
     free(buffer); // 释放暂存区
-    free(monoBuffer);
+    free(termBuffer);
     // Formula校验部分
     result = FormulaSimplify(result, valid);
     return result;
@@ -206,19 +274,18 @@ ST FormulaParser(char *str, int *valid) { // 将方程字符串处理为对应�
 
 ST FormulaSimplify(ST formula, int *valid) {
     // 校验，化简处理
-    if ((formula.leftNum < 1 || formula.rightNum < 1) || // 左边和右边都至少要有一项
+    if ((formula.leftLen < 1 || formula.rightLen < 1) || // 左边和右边都至少要有一项
         !formula.relation) // 缺少关系符号，方程无效
     {
         printf("Simplification Failed: Formula invalid.\n");
         *valid = 0; // 该方程无效
     } else {
         int i;
-        Number numTemp; // 临时存放数字
         // 临时把左右两边连接起来，便于遍历
-        Monomial **joined = (Monomial **) MemJoin(formula.left, formula.leftNum, formula.right, formula.rightNum,
-                                                  sizeof(Monomial *));
+        Term **joined = (Term **) MemJoin(formula.left, formula.leftLen, formula.right, formula.rightLen,
+                                          sizeof(Term *));
         // 连接后的数组长度
-        unsigned int joinedLen = formula.leftNum + formula.rightNum;
+        unsigned int joinedLen = formula.leftLen + formula.rightLen;
         long int numeCommonDiv = joined[0]->coefficient.numerator; // 所有分子的最大公约数
         long int denoCommonDiv = joined[0]->coefficient.denominator; // 所有分母的最大公约数
         for (i = 1; i < joinedLen; i++) {
@@ -231,11 +298,11 @@ ST FormulaSimplify(ST formula, int *valid) {
             numeCommonDiv = GCD(numeCommonDiv, joined[i]->coefficient.numerator);
             denoCommonDiv = GCD(denoCommonDiv, joined[i]->coefficient.denominator);
         }
-        for (i = 0; i < formula.leftNum; i++) { // 处理式左边
+        for (i = 0; i < formula.leftLen; i++) { // 处理式左边
             formula.left[i]->coefficient.numerator /= numeCommonDiv; // 约分子
             formula.left[i]->coefficient.denominator /= denoCommonDiv; // 约分母
         }
-        for (i = 0; i < formula.rightNum; i++) { // 处理式右边
+        for (i = 0; i < formula.rightLen; i++) { // 处理式右边
             formula.right[i]->coefficient.numerator /= numeCommonDiv; // 约分子
             formula.right[i]->coefficient.denominator /= denoCommonDiv; // 约分母
         }
@@ -244,12 +311,12 @@ ST FormulaSimplify(ST formula, int *valid) {
     return formula;
 }
 
-int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入LF或者ST
+int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) { // 将数据(str)解析后写入OF或者ST
     int status = 1; // 返回码
     SplitResult colonSp; // 初始化分割字符串
     ST formulaResult;
     switch (readFlag) {
-        case 1: // 写入LF
+        case 1: // 写入OF
             // 根据冒号分割
             colonSp = SplitByChr(str, ':');
             if (colonSp.len < 2) { // 目标函数没有指定maximize or minimize，无效
@@ -263,17 +330,13 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
                 }
                 formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
                 if (formulaResult.relation == 3) {
-                    if (formulaResult.leftNum == 1 && // OF左边只能有z一项
+                    if (formulaResult.leftLen == 1 && // OF左边只能有z一项
                         Decimalize(formulaResult.left[0]->coefficient) == 1) { // 左边z系数必须为1
                         linearFunc->left = formulaResult.left;
                         linearFunc->right = formulaResult.right;
-                        linearFunc->leftNum = formulaResult.leftNum;
-                        linearFunc->rightNum = formulaResult.rightNum; // 结果存入linearFunc
+                        linearFunc->leftLen = formulaResult.leftLen;
+                        linearFunc->rightLen = formulaResult.rightLen; // 结果存入linearFunc
                     } else {
-                        linearFunc->left = NULL;
-                        linearFunc->right = NULL;
-                        linearFunc->leftNum = 0;
-                        linearFunc->rightNum = 0;
                         printf("Non-standard Objective function!\n");
                         status = 0;
                     }

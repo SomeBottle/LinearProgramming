@@ -12,6 +12,7 @@ int main(int args, char *argv[]) {
             InitVarDict();
             // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
             LPModel parsed = Parser(fileStream);
+            ConstraintsTrans(&parsed);
             if (parsed.valid) { // LP模型有效
                 PrintModel(parsed);
             }

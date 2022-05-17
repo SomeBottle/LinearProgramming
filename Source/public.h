@@ -53,23 +53,23 @@ struct inc_constant { // 常量结构体
 typedef struct { // 方程中的一项，包括系数，变量名
     Number coefficient; // 系数
     char variable[4]; // 变量名
-} Monomial;
+} Term;
 
 typedef struct { // 目标线性函数
-    // 分为等号左边和等号右边两个Monomial数组，加上一个求最大值还是最小值
-    Monomial **left;
-    int leftNum; // 左侧数量（目标函数左边是z，所以这里只能是1）
-    Monomial **right;
-    int rightNum; // 右侧数量
+    // 分为等号左边和等号右边两个Term数组，加上一个求最大值还是最小值
+    Term **left;
+    size_t leftLen; // 左侧数量（目标函数左边是z，所以这里只能是1）
+    Term **right;
+    size_t rightLen; // 右侧数量
     short int type; // 最大值(max用1代表)还是最小值(min用-1代表)
 } OF;
 
 typedef struct { // 约束条件
-    // 分为方程左边和右边两个Monomial数组,加上一个符号字符数组
-    Monomial **left;
-    int leftNum; // 左侧数量
-    Monomial **right; // 方程右边
-    int rightNum; // 右侧数量
+    // 分为方程左边和右边两个Term数组,加上一个符号字符数组
+    Term **left;
+    size_t leftLen; // 左侧数量
+    Term **right; // 方程右边
+    size_t rightLen; // 右侧数量
     short int relation;
     // 关系符号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
 } ST;
@@ -110,7 +110,7 @@ extern Constant *InConstants(char chr);
 
 extern int IsConstItem(char *str);
 
-extern size_t RmvMonomial(Monomial **monos, size_t len, int pos);
+size_t RmvTerm(Term **terms, size_t len, int pos, int clean);
 
 extern int PrintModel(LPModel model);
 
@@ -118,7 +118,7 @@ extern long int GCD(long int num1, long int num2);
 
 extern long int LCM(long int num1, long int num2);
 
-extern void *MemJoin(void *prev, int prevLen, void *next, int nextLen, size_t eachSize);
+extern void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, size_t eachSize);
 
 // Number Operations Funcs below:
 
@@ -131,6 +131,8 @@ extern Number NSub(Number prev, Number next);
 extern Number NMul(Number prev, Number next);
 
 extern Number NDiv(Number prev, Number next);
+
+extern Number NInv(Number num);
 
 // hashTable Funcs below:
 

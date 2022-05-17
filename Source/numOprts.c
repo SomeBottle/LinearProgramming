@@ -15,72 +15,81 @@ int OFAdd(long prev, long after) { // 加运算溢出判断，返回1则代表�
 SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     // 运算分数乘法
     SubNum result = {.valid=1};
-    long int numeMult; // 相乘后的分子
-    long int denoMult; // 相乘后的分母
-    long int divisor1 = GCD(prevNume, nextDeno);
-    long int divisor2 = GCD(prevDeno, nextNume);
-    prevNume /= divisor1;
-    nextDeno /= divisor1;
-    prevDeno /= divisor2;
-    nextNume /= divisor2;
-    // 比如 2/3 × 5/4，这里2和4可以约分，就先找出来给约了再乘
-    numeMult = prevNume * nextNume;
-    denoMult = prevDeno * nextDeno;
-    if ((prevNume != 0 && numeMult / prevNume != nextNume) ||
-        (prevDeno != 0 && denoMult / prevDeno != nextDeno)) {
-        // 发生了溢出
+    if (prevDeno != 0 && nextDeno != 0) {
+        long int numeMult; // 相乘后的分子
+        long int denoMult; // 相乘后的分母
+        long int divisor1 = GCD(prevNume, nextDeno);
+        long int divisor2 = GCD(prevDeno, nextNume);
+        prevNume /= divisor1;
+        nextDeno /= divisor1;
+        prevDeno /= divisor2;
+        nextNume /= divisor2;
+        // 比如 2/3 × 5/4，这里2和4可以约分，就先找出来给约了再乘
+        numeMult = prevNume * nextNume;
+        denoMult = prevDeno * nextDeno;
+        if ((prevNume != 0 && numeMult / prevNume != nextNume) ||
+            (prevDeno != 0 && denoMult / prevDeno != nextDeno)) {
+            // 发生了溢出
+            result.valid = 0;
+            printf("WARNING: MULTIPLY Operation overflowed between %ld/%ld and %ld/%ld.\n", prevNume, prevDeno,
+                   nextNume,
+                   nextDeno);
+        }
+    } else { // 分母为0是不进行运算的，通常在运算subNum的时候会出现这种情况
         result.valid = 0;
-        printf("WARNING: MULTIPLY Operation overflowed between %ld/%ld and %ld/%ld.\n", prevNume, prevDeno, nextNume,
-               nextDeno);
     }
     return result;
 }
 
 SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     // 运算分数加法，专门写出来是为了防止运算溢出
-    long int prevAdded; // 通分后前一项的分子
-    long int nextAdded; // 通分后后一项的分子
-    long int numeAdded; // 相加后的分子
-    long int prevNumeFactor; // 通分时前一项分子要乘的因数
-    long int nextNumeFactor; // 通分时下一项分子要乘的因数
-    long int denoExpanded; // 通分后的分母
-    long int commonMul; // 最小公倍数
-    long int divisor; // 相加后约分用的最大公约数
     SubNum result = {.valid=1};
-    commonMul = LCM(prevDeno, nextDeno); // 算出最小公倍数
-    denoExpanded = commonMul; // 通分后用作分母
-    if (prevDeno != 0 && denoExpanded / prevDeno != nextDeno) { // 相乘运算溢出判断
+    if (prevDeno != 0 && nextDeno != 0) {
+        long int prevAdded; // 通分后前一项的分子
+        long int nextAdded; // 通分后后一项的分子
+        long int numeAdded; // 相加后的分子
+        long int prevNumeFactor; // 通分时前一项分子要乘的因数
+        long int nextNumeFactor; // 通分时下一项分子要乘的因数
+        long int denoExpanded; // 通分后的分母
+        long int commonMul; // 最小公倍数
+        long int divisor; // 相加后约分用的最大公约数
+        commonMul = LCM(prevDeno, nextDeno); // 算出最小公倍数
+        denoExpanded = commonMul; // 通分后用作分母
+        if (commonMul == -1) { // LCM运算溢出会返回-1
+            result.valid = 0;
+        }
+        /* 比如 1/3 + 1/2
+         *    prevAdded   nextAdded
+         *      _|_       _|_
+         * 通分：1*2/3*2 + 1*3/2*3
+         *        ↑         ↑
+         * prevNumeFactor nextNumeFactor
+         */
+        prevNumeFactor = commonMul / prevDeno;
+        prevAdded = prevNume * prevNumeFactor;
+        nextNumeFactor = commonMul / nextDeno;
+        nextAdded = nextNume * nextNumeFactor;
+        if ((prevNume != 0 && prevAdded / prevNume != prevNumeFactor) ||
+            (nextNume != 0 && nextAdded / nextNume != nextNumeFactor)) {
+            // 相乘发生溢出
+            result.valid = 0;
+        }
+        if (OFAdd(prevAdded, nextAdded)) { // 相加溢出判断
+            result.valid = 0;
+        } else {
+            numeAdded = prevAdded + nextAdded; // 分子相加
+            divisor = GCD(numeAdded, denoExpanded); // 找出分子分母最大公约数
+            numeAdded /= divisor;
+            denoExpanded /= divisor; // 约分
+            result.numerator = numeAdded;
+            result.denominator = denoExpanded;
+        }
+        if (result.valid == 0) { // 发生了溢出错误，运算出来的数字无效，提示一下
+            printf("WARNING: ADD Operation overflowed between %ld/%ld and %ld/%ld.\n", prevNume, prevDeno, nextNume,
+                   nextDeno);
+        }
+    } else { // 分母为0则不进行运算，通常在运算subNum的时候会出现这种情况
         result.valid = 0;
-    }
-    /* 比如 1/3 + 1/2
-     *    prevAdded   nextAdded
-     *      _|_       _|_
-     * 通分：1*2/3*2 + 1*3/2*3
-     *        ↑         ↑
-     * prevNumeFactor nextNumeFactor
-     */
-    prevNumeFactor = commonMul / prevDeno;
-    prevAdded = prevNume * prevNumeFactor;
-    nextNumeFactor = commonMul / nextDeno;
-    nextAdded = nextNume * nextNumeFactor;
-    if ((prevNume != 0 && prevAdded / prevNume != prevNumeFactor) ||
-        (nextNume != 0 && nextAdded / nextNume != nextNumeFactor)) {
-        // 相乘发生溢出
-        result.valid = 0;
-    }
-    if (OFAdd(prevAdded, nextAdded)) { // 相加溢出判断
-        result.valid = 0;
-    } else {
-        numeAdded = prevAdded + nextAdded; // 分子相加
-        divisor = GCD(numeAdded, denoExpanded); // 找出分子分母最大公约数
-        numeAdded /= divisor;
-        denoExpanded /= divisor; // 约分
-        result.numerator = numeAdded;
-        result.denominator = denoExpanded;
-    }
-    if (result.valid == 0) { // 发生了溢出错误，运算出来的数字无效，提示一下
-        printf("WARNING: ADD Operation overflowed between %ld/%ld and %ld/%ld.\n", prevNume, prevDeno, nextNume,
-               nextDeno);
     }
     return result;
 }
@@ -211,4 +220,10 @@ Number NDiv(Number prev, Number next) { // 除法
         printf("WARNING:Dividing by a Number with CONSTANT is not suggested here.\n"); // 提示不建议
     }
     return NMul(prev, next);
+}
+
+Number NInv(Number num) { // 取相反数
+    num.numerator = -num.numerator;
+    num.sub.numerator = -num.sub.numerator;
+    return num;
 }

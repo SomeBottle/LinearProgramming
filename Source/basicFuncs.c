@@ -2,17 +2,17 @@
 
 SplitResult SplitByChr(char *str, char chr) { // (字符串,字符) 按字符分隔字符串，会返回一个二维数组
     int i;
-    int stringLen = strlen(str);
-    int bufferSize = sizeof(char) * stringLen;
+    size_t stringLen = strlen(str);
+    size_t bufferSize = sizeof(char) * stringLen;
     char *buffer = (char *) malloc(bufferSize); // 字符串暂存区
     int bufferLen = 0; // 暂存区字符数组长度
     char **arr = (char **) malloc(sizeof(char *) * stringLen); // 数组第一维
     int arrLen = 0; // 返回二维数组第一维的大小
     for (i = 0; i < stringLen + 1; i++) {
-        int currentChr;
+        unsigned int currentChr;
         int lastOne = 0; // 最后一项单独处理
         if (i < stringLen) {
-            currentChr = str[i];
+            currentChr = (unsigned int) str[i];
         } else {
             lastOne = 1;
         }
@@ -24,7 +24,7 @@ SplitResult SplitByChr(char *str, char chr) { // (字符串,字符) 按字符分
             bufferLen = 0; // 暂存区长度归零
             arrLen++;
         } else {
-            buffer[bufferLen++] = currentChr; // 存入字符串暂存区
+            buffer[bufferLen++] = (char) currentChr; // 存入字符串暂存区
         }
     }
     free(buffer); // 释放暂存区
@@ -45,7 +45,7 @@ int freeSplitArr(SplitResult *rs) { // 门当对户地释放SplitByChr的返回�
     return 1;
 }
 
-void *MemJoin(void *prev, int prevLen, void *next, int nextLen, size_t eachSize) {
+void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, size_t eachSize) {
     // 将两段内存连接成一块（重分配），返回指向新分配内存开头的指针
     // (前一段内存的起址,前一段内存长度,后一段内存的起址,后一段内存长度,类型储存字节大小)
     void *joined = malloc(eachSize * (prevLen + nextLen));
@@ -101,18 +101,24 @@ long int GCD(long int num1, long int num2) {
 
 long int LCM(long int num1, long int num2) {
     // 最大公约数*最小公倍数=两整数乘积
-    long int divisor = GCD(num1, num2);
+    // 溢出会返回-1
+    long int divisor = GCD(num1, num2), divided, result;
     num1 = labs(num1); // 一般LCM也被限定为正整数
     num2 = labs(num2);
-    return (num1 / divisor) * num2;
+    divided = (num1 / divisor);
+    result = divided * num2;
+    if (divided != 0 && result / divided != num2) {
+        return -1; // 如果溢出了就返回-1
+    }
+    return result;
 }
 
 Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3M/4M 3/4...
     Number result = {.valid=1};
     Constant *cstPtr1 = NULL; // 常量临时指针1
     int i;
-    int len = strlen(str);
-    int partLen = 0; // 字符串部分长度暂存
+    size_t len = strlen(str);
+    size_t partLen = 0; // 字符串部分长度暂存
     // 创建一份字符串拷贝
     char *strCopy = (char *) calloc(len + 2, sizeof(char));
     char *convEndPtr; // 转换类型后所在位置的指针
@@ -125,44 +131,54 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
     if (strchr(strCopy, '/') != NULL) { // 分数表示
         Constant *cstPtr2 = NULL; // 常量临时指针2
         divPtr = strtok(strCopy, "/"); // 按'/‘分割
-        partLen = strlen(divPtr);
-        if ((cstPtr1 = InConstants(divPtr[partLen - 1])) != NULL) { // 分子最后一位是一个常量，对应3M/4分子3M的情况
-            divPtr[partLen - 1] = '\0'; // 从字符串中去掉该项，防止下面转换为数字失败
-        }
-        // 分子转换为10进制long int类型
-        numerator = strtol(divPtr, &convEndPtr, 10);
-        if (*convEndPtr == '\0') { // 分子能完全转换为整数
-            divPtr = strtok(NULL, "/"); // 继续再分割一次
+        if (divPtr != NULL) {
             partLen = strlen(divPtr);
-            if ((cstPtr2 = InConstants(divPtr[partLen - 1])) != NULL) { // 分母最后是一个常量
-                if (cstPtr1 != NULL) { // 分子已经有常量了
-                    result.constant = NULL; // 两个常量消掉了
-                } else {
-                    result.constant = cstPtr2; // 储存指向constants中一个元素的指针
-                    result.constLies = 1; // 常量在分母
-                }
+            if ((cstPtr1 = InConstants(divPtr[partLen - 1])) != NULL) { // 分子最后一位是一个常量，对应3M/4分子3M的情况
                 divPtr[partLen - 1] = '\0'; // 从字符串中去掉该项，防止下面转换为数字失败
-            } else if (cstPtr1 != NULL) { // 分子的最后存在常量
-                result.constant = cstPtr1; // 储存指向constants中一个元素的指针
-                result.constLies = 0; // 常量在分子
-            } else {
-                result.constant = NULL; // 无常量
             }
-            cstPtr1 = cstPtr2 = NULL; // 解除两个指针的指向
-            denominator = strtol(divPtr, &convEndPtr, 10);
-            if (*convEndPtr == '\0' && numerator != 0) {
-                // 分母也能完全转换为整数，且分子不为0
-                cmDivisor = labs(GCD(numerator, denominator));
-                // 找出最大公约数（绝对值）
-                denominator = denominator / cmDivisor;
-                numerator = numerator / cmDivisor; // 约分操作
-                result.numerator = numerator;
-                result.denominator = denominator; // 存入结构体
+            // 分子转换为10进制long int类型
+            numerator = strtol(divPtr, &convEndPtr, 10);
+            if (*convEndPtr == '\0') { // 分子能完全转换为整数
+                divPtr = strtok(NULL, "/"); // 继续再分割一次
+                if (divPtr != NULL) {
+                    partLen = strlen(divPtr);
+                    if ((cstPtr2 = InConstants(divPtr[partLen - 1])) != NULL) { // 分母最后是一个常量
+                        if (cstPtr1 != NULL) { // 分子已经有常量了
+                            result.constant = NULL; // 两个常量消掉了
+                        } else {
+                            result.constant = cstPtr2; // 储存指向constants中一个元素的指针
+                            result.constLies = 1; // 常量在分母
+                        }
+                        divPtr[partLen - 1] = '\0'; // 从字符串中去掉该项，防止下面转换为数字失败
+                    } else if (cstPtr1 != NULL) { // 分子的最后存在常量
+                        result.constant = cstPtr1; // 储存指向constants中一个元素的指针
+                        result.constLies = 0; // 常量在分子
+                    } else {
+                        result.constant = NULL; // 无常量
+                    }
+                    cstPtr1 = cstPtr2 = NULL; // 解除两个指针的指向
+                    denominator = strtol(divPtr, &convEndPtr, 10);
+                    if (*convEndPtr == '\0' && numerator != 0) {
+                        // 分母也能完全转换为整数，且分子不为0
+                        cmDivisor = labs(GCD(numerator, denominator));
+                        // 找出最大公约数（绝对值）
+                        denominator = denominator / cmDivisor;
+                        numerator = numerator / cmDivisor; // 约分操作
+                        result.numerator = numerator;
+                        result.denominator = denominator; // 存入结构体
+                        if (denominator <= 0)  // 规定分母不可等于零，也不可小于0
+                            result.valid = 0; // 数字无效
+                    } else {
+                        result.valid = 0; // 出错了，数字无效
+                    }
+                } else {
+                    result.valid = 0; // 分母无效，数字无效
+                }
             } else {
                 result.valid = 0; // 出错了，数字无效
             }
         } else {
-            result.valid = 0; // 出错了，数字无效
+            result.valid = 0; // 分子无效，数字无效
         }
     } else {
         // 预先判断末尾有没有常量
@@ -194,8 +210,8 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
                 divPtr = strtok(NULL, "."); // 获得小数点后面的部分(NULL就会接着上一次的位置继续)
                 /* 这里的原理就像这样：-2.45 -分数形式-> -245/100 -约分-> -49/20 */
                 if (divPtr != NULL) {
-                    int digits = strlen(divPtr); // 小数位数
-                    denominator = (long int) pow(10.0, (double) digits); // 计算出分母
+                    size_t digitsLen = strlen(divPtr); // 小数位数
+                    denominator = (long int) pow(10.0, (double) digitsLen); // 计算出分母
                     numerator = (long int) (decimal * denominator); // 计算出分子
                     cmDivisor = labs(GCD(numerator, denominator));
                     // 最大公约数约分，公约数规定为正数，防止符号问题
@@ -242,19 +258,22 @@ double Decimalize(Number num) { // 将Number结构体转成double浮点数
     return result;
 }
 
-size_t RmvMonomial(Monomial **monos, size_t len, int pos) {
-    // (Monomial指针, 数组长度, 移除位置)
-    // 从Monomial数组中移除某一项，比如从约束式子左边移去一项
-    int ptr1, ptr2 = 0; // 双指针
+size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
+    // (Term指针, 数组长度, 移除位置, 是否free)
+    // 从Term数组中移除某一项，比如从约束式子左边移去一项
+    // 注：这里的Remove只是形式上的，并没有对项目进行free
+    int ptr1, ptr2 = 0; // 双指针法
     for (ptr1 = 0; ptr1 < len; ptr1++) {
         if (ptr1 != pos) {
-            monos[ptr2++] = monos[ptr1];
+            terms[ptr2++] = terms[ptr1];
+        } else if (clean) {
+            free(terms[ptr1]);
         }
     }
     return ptr2; // 数组的新长度
 }
 
-int PrintMonomial(Monomial **item, int itemNum) { // 打印单项
+int PrintTerms(Term **item, size_t itemNum) { // 打印多项式
     int i;
     long int numeTemp, denoTemp, liesTemp;
     char constName = '\0';
@@ -290,13 +309,13 @@ int PrintModel(LPModel model) { // 打印LP模型
     OF oFunc = model.objective; // 临时拿到目标函数
     ST *subTo = model.subjectTo; // 取到约束数组指针
     printf("Objective Function:\n\t%s:", oFunc.type == 1 ? "max" : "min"); // 目标函数类型
-    PrintMonomial(oFunc.left, oFunc.leftNum); // 一项一项打印出来
+    PrintTerms(oFunc.left, oFunc.leftLen); // 一项一项打印出来
     printf(" = "); // 打印等号
-    PrintMonomial(oFunc.right, oFunc.rightNum);
+    PrintTerms(oFunc.right, oFunc.rightLen);
     printf("\nSubject to:\n");
     for (i = 0; i < model.stNum; i++) {
         printf("\t");
-        PrintMonomial(subTo[i].left, subTo[i].leftNum); // 一项一项打印出来
+        PrintTerms(subTo[i].left, subTo[i].leftLen); // 一项一项打印出来
         switch (subTo[i].relation) {
             case -2:
                 printf(" %s ", "<="); // 打印关系符号
@@ -314,7 +333,7 @@ int PrintModel(LPModel model) { // 打印LP模型
                 printf(" %s ", "=");
                 break;
         }
-        PrintMonomial(subTo[i].right, subTo[i].rightNum);
+        PrintTerms(subTo[i].right, subTo[i].rightLen);
         printf("\n");
     }
     return 1;
@@ -325,20 +344,20 @@ int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
     // 先处理目标函数
     OF *oFunc = &model->objective; // 地址引用目标函数结构体
     ST *subTo = model->subjectTo;
-    oFunc->leftNum = 0;
-    oFunc->rightNum = 0;
+    oFunc->leftLen = 0;
+    oFunc->rightLen = 0;
     free(oFunc->left); // 释放目标函数中的项集
     free(oFunc->right);
     for (i = 0; i < model->stNum; i++) { // 遍历释放约束条件内存
         ST *stTemp = subTo + i;
-        for (j = 0; j < stTemp->leftNum; j++) { // 释放所有的项
+        for (j = 0; j < stTemp->leftLen; j++) { // 释放所有的项
             free(stTemp->left[j]);
         }
-        for (j = 0; j < stTemp->rightNum; j++) {
+        for (j = 0; j < stTemp->rightLen; j++) {
             free(stTemp->right[j]);
         }
-        stTemp->leftNum = 0;
-        stTemp->rightNum = 0;
+        stTemp->leftLen = 0;
+        stTemp->rightLen = 0;
         free(stTemp->left); // 释放该约束中的项集
         free(stTemp->right);
     }
