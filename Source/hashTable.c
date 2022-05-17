@@ -82,10 +82,16 @@ unsigned int PutVarItem(VarItem *item) { // 将键值对项目存入表中
             currentNode = (VarItem *) calloc(1, sizeof(VarItem));
             varDict.table[hash] = currentNode; // 初始化链地址
         }
-        while (currentNode->next != NULL) {
-            currentNode = currentNode->next;
-        }
         item->next = NULL;
+        while (currentNode->next != NULL) {
+            if (strcmp(item->keyName, currentNode->next->keyName) == 0) { // 如果表中已经存放了这个键值对
+                item->next = currentNode->next->next; // 在对应位置插入节点
+                free(currentNode->next); // 替换掉原来的键值对，这里就把原来的释放了
+                break;
+            } else { // 否则一直寻找直至下一个节点为NULL
+                currentNode = currentNode->next;
+            }
+        }
         currentNode->next = item; // 链地址法解决哈希碰撞，将当前键值对指针存入链表
     } else { // 哈希运算失败
         return 0;
