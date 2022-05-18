@@ -19,8 +19,8 @@ int main(int args, char *argv[]) {
             ConstraintsTrans(&parsed);
             endTime = clock();
             timeCost = ((double) (endTime - startTime)) / CLOCKS_PER_SEC;
-            printf("LPModel Parsed in %.9fs\n\n", timeCost);
             if (parsed.valid) { // LP模型有效
+                printf("LPModel Successfully Parsed in %fs.\n\n", timeCost);
                 PrintModel(parsed);
             }
             // 释放常量constants指针数组的堆内存

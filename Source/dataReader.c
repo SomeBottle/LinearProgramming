@@ -109,6 +109,7 @@ void ConstraintsTrans(LPModel *model) {
 
             // 抽取出变量的取值方向，仅限 x >= 0 x <= 0 这种，否则会留在约束条件中
             if (stTemp->leftLen == 1 && stTemp->rightLen == 1 && // 左右只有一项
+                Decimalize(stTemp->left[0]->coefficient) == 1 && // 左边系数必须是1
                 Decimalize(stTemp->right[0]->coefficient) == 0 && // 右边为0
                 (abs(stTemp->relation) == 2)) { // 关系必须是 >= 或 <=
                 int ptr;

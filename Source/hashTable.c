@@ -20,6 +20,32 @@ void InitVarDict() { // 初始化变量约束哈希表
     varDict.table = (VarItem **) calloc(VAR_HASH_TABLE_LEN, sizeof(VarItem *));
 }
 
+VarItem **GetVarItems(size_t *len) {
+    // 获得变量约束哈希表的所有键值对(key)，记得free
+    int sizePerAlloc = 5; // 每次分配时增加多少元素
+    size_t maxLen = sizePerAlloc; // 返回的指针数组长度
+    int ptr = 0, i; // 当前指向的地址
+    VarItem **allItems = (VarItem **) calloc(maxLen, sizeof(VarItem *));
+    VarItem *currentNode;
+    for (i = 0; i < varDict.tableSize; i++) {
+        currentNode = varDict.table[i];
+        if (currentNode != NULL) { // 这里有数据
+            currentNode = currentNode->next; // 从首个节点开始
+            while (currentNode != NULL) {
+                allItems[ptr++] = currentNode; // 存入结果列表
+                if (ptr >= maxLen) { // 结果数组长度不够了，重新分配一下
+                    maxLen += sizePerAlloc; // 增加元素
+                    allItems = (VarItem **) realloc(allItems, sizeof(VarItem *) * maxLen);
+                    memset(allItems + ptr, 0, sizePerAlloc); // 清空新分配的内存
+                }
+                currentNode = currentNode->next;
+            }
+        }
+    }
+    *len = ptr;
+    return allItems; // 记得free
+}
+
 void DelVarDict() { // 销毁变量约束哈希表
     int i;
     for (i = 0; i < varDict.tableSize; i++) {
@@ -66,7 +92,7 @@ unsigned int VarHash(char *varName) {
 }
 
 VarItem *CreateVarItem(char *varName, short int relation, int num) {
-    VarItem *new = (VarItem *) malloc(sizeof(VarItem)); // 在堆内存中分配一个键值对项目
+    VarItem *new = (VarItem *) calloc(1, sizeof(VarItem)); // 在堆内存中分配一个键值对项目
     new->keyName = (char *) malloc((strlen(varName) + 1) * sizeof(char));
     strcpy(new->keyName, varName); // 复制字符串
     new->relation = relation;
@@ -80,13 +106,13 @@ unsigned int PutVarItem(VarItem *item) { // 将键值对项目存入表中
         VarItem *currentNode = varDict.table[hash];
         if (currentNode == NULL) { // 这个哈希对应的链地址还未初始化
             currentNode = (VarItem *) calloc(1, sizeof(VarItem));
-            varDict.table[hash] = currentNode; // 初始化链地址
+            varDict.table[hash] = currentNode; // 初始化链地址头节点
         }
         item->next = NULL;
         while (currentNode->next != NULL) {
             if (strcmp(item->keyName, currentNode->next->keyName) == 0) { // 如果表中已经存放了这个键值对
                 item->next = currentNode->next->next; // 在对应位置插入节点
-                free(currentNode->next); // 替换掉原来的键值对，这里就把原来的释放了
+                free(currentNode->next); // 替换掉原来的键值对，这里就把原来的项目释放了
                 break;
             } else { // 否则一直寻找直至下一个节点为NULL
                 currentNode = currentNode->next;

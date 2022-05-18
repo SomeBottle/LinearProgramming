@@ -111,7 +111,7 @@ extern Constant *InConstants(char chr);
 
 extern int IsConstItem(char *str);
 
-size_t RmvTerm(Term **terms, size_t len, int pos, int clean);
+extern size_t RmvTerm(Term **terms, size_t len, int pos, int clean);
 
 extern int PrintModel(LPModel model);
 
