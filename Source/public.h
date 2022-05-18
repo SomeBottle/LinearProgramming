@@ -93,7 +93,7 @@ extern int constantsNum;
 // DataReader Funcs below:
 
 extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
-extern void ConstraintsTrans(LPModel *model);
+extern void LPTrans(LPModel *model);
 
 // Basic Funcs below:
 
@@ -104,6 +104,8 @@ extern int freeSplitArr(SplitResult *rs);
 extern Number Fractionize(char *str);
 
 extern double Decimalize(Number num);
+
+extern int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF);
 
 extern int FreeModel(LPModel *model);
 

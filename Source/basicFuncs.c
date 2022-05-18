@@ -258,6 +258,42 @@ double Decimalize(Number num) { // 将Number结构体转成double浮点数
     return result;
 }
 
+int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
+    /* @brief 合并多项式中的同类项
+     * @param terms 代表多项式的指针数组
+     * @param len 指向指针数组长度变量的指针
+     * @param forOF 是否用于合并目标函数的同类项
+     * @return 返回合并是否成功
+     */
+    int j, k;
+    for (j = 0; j < *termsLen; j++) {
+        for (k = j + 1; k < *termsLen; k++) {
+            if (strcmp(terms[j]->variable, terms[k]->variable) == 0) { // 找到同类项
+                // 系数相加
+                terms[j]->coefficient = NAdd(terms[j]->coefficient, terms[k]->coefficient);
+                *termsLen = RmvTerm(terms, *termsLen, k, 1); // 移除多余的项目
+                k--; // 去除某一项后遍历的位置也要前移一位
+            }
+        }
+        if (!terms[j]->coefficient.valid) { // 有项目的系数存在问题
+            printf("CMB ERROR: Invalid coefficient appeared after combining.\n");
+            return 0; // 合并中止
+        }
+
+        if (terms[j]->coefficient.numerator == 0) {
+            // 剔除消除了的项（合并后系数为0）
+            *termsLen = RmvTerm(terms, *termsLen, j, 1);
+            j--; // 去除某一项后遍历的位置也要前移一位
+        } else if (!forOF) { // 合并的是约束条件中的多项
+            // 这一项有效，就把变量登记入哈希表
+            // 创建键值对
+            VarItem *newItem = CreateVarItem(terms[j]->variable, 0, 0);
+            PutVarItem(newItem); // 存入哈希表（如果变量对应项目已经存在，就会被替换掉）
+        }
+    }
+    return 1;
+}
+
 size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
     // (Term指针, 数组长度, 移除位置, 是否free)
     // 从Term数组中移除某一项，比如从约束式子左边移去一项

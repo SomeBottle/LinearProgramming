@@ -16,7 +16,7 @@ int main(int args, char *argv[]) {
             // 读取并解析线性模型为结构体，用完后记得释放掉分配的内存，这是个好习惯！
             LPModel parsed = Parser(fileStream);
             // 移项处理并且合并同类项，同时将变量取值范围记入哈希表
-            ConstraintsTrans(&parsed);
+            LPTrans(&parsed);
             endTime = clock();
             timeCost = ((double) (endTime - startTime)) / CLOCKS_PER_SEC;
             if (parsed.valid) { // LP模型有效

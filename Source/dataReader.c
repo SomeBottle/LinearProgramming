@@ -32,12 +32,21 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
     return (!bracket && isspace(x)) || x == ';';
 }
 
-void ConstraintsTrans(LPModel *model) {
-    // 对LP模型中的约束部分进行移项处理，保证关系符号左边都是变量，而右边是常数项
-    // 同时合并同类项
+void LPTrans(LPModel *model) {
+    // 对LP模型中的约束进行移项处理，保证关系符号左边都是变量，而右边是常数项
+    // 同时合并多项式中的同类项
+    // 另外再次检查LP模型是否有效
     int i, j, k;
     ST *stTemp = NULL;
     Term *termTemp = NULL;
+
+    // 合并目标函数右边的同类项
+    if (!CmbSmlTerms(model->objective.right, &model->objective.rightLen, 1)) {
+        // 出错
+        printf("ERROR: Invalid term appeared in the right hand side of Objective Function.\n");
+        model->valid = 0; // 无效
+    }
+
     for (i = 0; i < model->stLen; i++) {
         stTemp = model->subjectTo + i;
         for (j = 0; j < stTemp->leftLen; j++) { // 检查约束左边有没有常数项
@@ -59,33 +68,11 @@ void ConstraintsTrans(LPModel *model) {
         }
         if (stTemp->leftLen > 0 && stTemp->rightLen > 0) { // 式子左右两侧必须要有项目，保证约束完整性
             // 合并左边同类项：全都是带变量的
-            for (j = 0; j < stTemp->leftLen; j++) {
-                for (k = j + 1; k < stTemp->leftLen; k++) {
-                    if (strcmp(stTemp->left[j]->variable, stTemp->left[k]->variable) == 0) { // 找到同类项
-                        // 系数相加
-                        stTemp->left[j]->coefficient = NAdd(stTemp->left[j]->coefficient, stTemp->left[k]->coefficient);
-                        stTemp->leftLen = RmvTerm(stTemp->left, stTemp->leftLen, k, 1); // 移除多余的项目
-                        k--; // 去除某一项后遍历的位置也要前移一位
-                    }
-                }
-                // 读取用户数据时是不会有常量M这类的，所以只需要判断numerator和denominator
-                if (!stTemp->left[j]->coefficient.valid) { // 有项目的系数存在问题
-                    printf("ERROR: Invalid coefficient appeared in the left hand side of the CONSTRAINT (ST Line: %d)\n",
-                           i + 1);
-                    model->valid = 0; // 无效
-                    break;
-                }
-
-                if (stTemp->left[j]->coefficient.numerator == 0) {
-                    // 剔除无效项（系数为0）
-                    stTemp->leftLen = RmvTerm(stTemp->left, stTemp->leftLen, j, 1);
-                    j--; // 去除某一项后遍历的位置也要前移一位
-                } else {
-                    // 这一项有效，就把变量登记入哈希表
-                    // 创建键值对
-                    VarItem *newItem = CreateVarItem(stTemp->left[j]->variable, 0, 0);
-                    PutVarItem(newItem); // 存入哈希表（如果变量对应项目已经存在，就会被替换掉）
-                }
+            if (!CmbSmlTerms(stTemp->left, &stTemp->leftLen, 0)) {
+                // 出错
+                printf("ERROR: Invalid term appeared in the left hand side of the CONSTRAINT (ST Line: %d)\n",
+                       i + 1);
+                model->valid = 0; // 无效
             }
             // 合并右边同类项：全都是常数项
             for (j = stTemp->rightLen - 1; j > 0; j--) { // 倒序遍历
@@ -126,6 +113,15 @@ void ConstraintsTrans(LPModel *model) {
             printf("ERROR: LPModel invalid due to the incomplete CONSTRAINT (ST Line: %d).\n", i + 1);
             model->valid = 0;
         }
+    }
+    // 最后检查目标函数中的决策变量是否都正好存在于约束中，不能多也不能少
+    size_t tableVarNum = 0;
+    GetVarItems(&tableVarNum); // 获得哈希表中变量的数量
+    // 因为在合并约束的同类项时会将变量写入哈希表，
+    // 如果 哈希表存放的变量数量 和 合并后的目标函数右边变量的数量 不匹配就肯定少写了或多写了约束
+    if (tableVarNum != model->objective.rightLen) {
+        printf("ERROR: Mismatch in the number of variables in the Objective Function and Constraints.\n");
+        model->valid = 0;
     }
 }
 
