@@ -36,70 +36,90 @@ void ConstraintsTrans(LPModel *model) {
     // 对LP模型中的约束部分进行移项处理，保证关系符号左边都是变量，而右边是常数项
     // 同时合并同类项
     int i, j, k;
-    ST *temp = NULL;
+    ST *stTemp = NULL;
     Term *termTemp = NULL;
-    for (i = 0; i < model->stNum; i++) {
-        temp = model->subjectTo + i;
-        for (j = 0; j < temp->leftLen; j++) { // 检查约束左边有没有常数项
-            termTemp = temp->left[j];
+    for (i = 0; i < model->stLen; i++) {
+        stTemp = model->subjectTo + i;
+        for (j = 0; j < stTemp->leftLen; j++) { // 检查约束左边有没有常数项
+            termTemp = stTemp->left[j];
             if (strlen(termTemp->variable) == 0) { // 没有变量名，是常数项，往右边移动
                 // 移除式子左边的对应项目
-                temp->leftLen = RmvTerm(temp->left, temp->leftLen, j, 0);
+                stTemp->leftLen = RmvTerm(stTemp->left, stTemp->leftLen, j, 0);
                 termTemp->coefficient = NInv(termTemp->coefficient); // 移项后取相反数
-                temp->right[temp->rightLen++] = termTemp; // 把该项移动到式子右边
+                stTemp->right[stTemp->rightLen++] = termTemp; // 把该项移动到式子右边
             }
         }
-        for (j = 0; j < temp->rightLen; j++) {
-            termTemp = temp->right[j];
+        for (j = 0; j < stTemp->rightLen; j++) {
+            termTemp = stTemp->right[j];
             if (strlen(termTemp->variable) != 0) { // 有变量名，非常数项，往左边移动
-                temp->rightLen = RmvTerm(temp->right, temp->rightLen, j, 0);
+                stTemp->rightLen = RmvTerm(stTemp->right, stTemp->rightLen, j, 0);
                 termTemp->coefficient = NInv(termTemp->coefficient); // 取相反数
-                temp->left[temp->leftLen++] = termTemp; // 移动到式子左边
+                stTemp->left[stTemp->leftLen++] = termTemp; // 移动到式子左边
             }
         }
-        if (temp->leftLen > 0 && temp->rightLen > 0) { // 式子左右两侧必须要有项目，保证约束完整性
+        if (stTemp->leftLen > 0 && stTemp->rightLen > 0) { // 式子左右两侧必须要有项目，保证约束完整性
             // 合并左边同类项：全都是带变量的
-            for (j = 0; j < temp->leftLen; j++) {
-                for (k = j + 1; k < temp->leftLen; k++) {
-                    if (strcmp(temp->left[j]->variable, temp->left[k]->variable) == 0) { // 找到同类项
+            for (j = 0; j < stTemp->leftLen; j++) {
+                for (k = j + 1; k < stTemp->leftLen; k++) {
+                    if (strcmp(stTemp->left[j]->variable, stTemp->left[k]->variable) == 0) { // 找到同类项
                         // 系数相加
-                        temp->left[j]->coefficient = NAdd(temp->left[j]->coefficient, temp->left[k]->coefficient);
-                        temp->leftLen = RmvTerm(temp->left, temp->leftLen, k, 1); // 移除多余的项目
+                        stTemp->left[j]->coefficient = NAdd(stTemp->left[j]->coefficient, stTemp->left[k]->coefficient);
+                        stTemp->leftLen = RmvTerm(stTemp->left, stTemp->leftLen, k, 1); // 移除多余的项目
                         k--; // 去除某一项后遍历的位置也要前移一位
                     }
                 }
                 // 读取用户数据时是不会有常量M这类的，所以只需要判断numerator和denominator
-                if (!temp->left[j]->coefficient.valid) { // 有项目的系数存在问题
+                if (!stTemp->left[j]->coefficient.valid) { // 有项目的系数存在问题
                     printf("ERROR: Invalid coefficient appeared in the left hand side of the CONSTRAINT (ST Line: %d)\n",
                            i + 1);
                     model->valid = 0; // 无效
                     break;
                 }
 
-                if (temp->left[j]->coefficient.numerator == 0) {
+                if (stTemp->left[j]->coefficient.numerator == 0) {
                     // 剔除无效项（系数为0）
-                    temp->leftLen = RmvTerm(temp->left, temp->leftLen, j, 1);
+                    stTemp->leftLen = RmvTerm(stTemp->left, stTemp->leftLen, j, 1);
                     j--; // 去除某一项后遍历的位置也要前移一位
+                } else {
+                    // 这一项有效，就把变量登记入哈希表
+                    // 创建键值对
+                    VarItem *newItem = CreateVarItem(stTemp->left[j]->variable, 0, 0);
+                    PutVarItem(newItem); // 存入哈希表（如果变量对应项目已经存在，就会被替换掉）
                 }
             }
             // 合并右边同类项：全都是常数项
-            for (j = temp->rightLen - 1; j > 0; j--) { // 倒序遍历
-                temp->right[0]->coefficient = NAdd(temp->right[0]->coefficient, temp->right[j]->coefficient);
-                free(temp->right[j]); // 释放参与合并了的项
-                temp->rightLen--;
+            for (j = stTemp->rightLen - 1; j > 0; j--) { // 倒序遍历
+                stTemp->right[0]->coefficient = NAdd(stTemp->right[0]->coefficient, stTemp->right[j]->coefficient);
+                free(stTemp->right[j]); // 释放参与合并了的项
+                stTemp->rightLen--;
             }
             // 检查约束左边在合并同类项后是否还有项目
-            if (temp->leftLen <= 0) {
+            if (stTemp->leftLen <= 0) {
                 printf("ERROR: No term left in the left hand side of the CONSTRAINT (ST Line: %d) after combining similar terms.\n",
                        i + 1);
                 model->valid = 0; // 无效
             }
             // 检查约束右边的常数项是否有效(valid)
-            if (!temp->right[0]->coefficient.valid) {
+            if (!stTemp->right[0]->coefficient.valid) {
                 // 运算错误时(比如分母出现0)，数字就会无效
                 printf("ERROR: Division by zero appeared in the right hand side of the CONSTRAINT (ST Line: %d).\n",
                        i + 1);
                 model->valid = 0;
+            }
+
+            // 抽取出变量的取值方向，仅限 x >= 0 x <= 0 这种，否则会留在约束条件中
+            if (stTemp->leftLen == 1 && stTemp->rightLen == 1 && // 左右只有一项
+                Decimalize(stTemp->right[0]->coefficient) == 0 && // 右边为0
+                (abs(stTemp->relation) == 2)) { // 关系必须是 >= 或 <=
+                int ptr;
+                VarItem *newItem = CreateVarItem(stTemp->left[0]->variable, stTemp->relation, 0);
+                PutVarItem(newItem); // 将变量取值存入哈希表
+                for (ptr = i; ptr < model->stLen - 1; ptr++) { // 移除指定的约束
+                    model->subjectTo[ptr] = model->subjectTo[ptr + 1];
+                }
+                // 更新约束数量
+                model->stLen--;
+                i--; // 约束移除后遍历位置前移
             }
         } else { // 有约束不完整
             printf("ERROR: LPModel invalid due to the incomplete CONSTRAINT (ST Line: %d).\n", i + 1);
@@ -188,7 +208,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     LPModel result = {
             .subjectTo=subjectTo,
             .objective=linearFunc,
-            .stNum=stPtr,
+            .stLen=stPtr,
             .valid=valid
     };
     return result;

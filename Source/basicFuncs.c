@@ -313,7 +313,7 @@ int PrintModel(LPModel model) { // 打印LP模型
     printf(" = "); // 打印等号
     PrintTerms(oFunc.right, oFunc.rightLen);
     printf("\nSubject to:\n");
-    for (i = 0; i < model.stNum; i++) {
+    for (i = 0; i < model.stLen; i++) {
         printf("\t");
         PrintTerms(subTo[i].left, subTo[i].leftLen); // 一项一项打印出来
         switch (subTo[i].relation) {
@@ -348,7 +348,7 @@ int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
     oFunc->rightLen = 0;
     free(oFunc->left); // 释放目标函数中的项集
     free(oFunc->right);
-    for (i = 0; i < model->stNum; i++) { // 遍历释放约束条件内存
+    for (i = 0; i < model->stLen; i++) { // 遍历释放约束条件内存
         ST *stTemp = subTo + i;
         for (j = 0; j < stTemp->leftLen; j++) { // 释放所有的项
             free(stTemp->left[j]);
@@ -362,6 +362,6 @@ int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
         free(stTemp->right);
     }
     free(subTo); // 释放约束指针数组占用的内存
-    model->stNum = 0;
+    model->stLen = 0;
     return 1;
 }

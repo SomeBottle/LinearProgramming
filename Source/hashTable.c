@@ -62,7 +62,7 @@ unsigned int VarHash(char *varName) {
      * 为求简便，hash结果中可以减去一部分
      */
     result -= 65;
-    return result; // 如果返回的是0肯定就失败了
+    return result > 0 ? result : 0; // 如果返回的是0肯定就失败了
 }
 
 VarItem *CreateVarItem(char *varName, short int relation, int num) {

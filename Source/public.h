@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <time.h>
 
 #ifdef _WIN32 // 根据不同系统编译环境定义清屏和暂停的宏
 #define CLEAR system("cls")
@@ -77,7 +78,7 @@ typedef struct { // 约束条件
 typedef struct { // 线性规划数学模型，包括线性函数数组和约束数组
     OF objective; // 目标函数
     ST *subjectTo; // 约束
-    int stNum; // 约束数量
+    size_t stLen; // 约束数量
     short int valid; // 是否有效
 } LPModel;
 
