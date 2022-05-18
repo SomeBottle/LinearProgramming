@@ -6,6 +6,9 @@
 
 #include "public.h"
 
+unsigned int VarHash(char *varName);
+
+/** 变量约束哈希表*/
 struct { // 创建变量约束哈希表
     int tableSize; // 哈希表底层数组长度
     VarItem **table;
@@ -16,10 +19,17 @@ struct { // 创建变量约束哈希表
         .table=NULL
 };
 
-void InitVarDict() { // 初始化变量约束哈希表
+/** 初始化变量约束哈希表 */
+void InitVarDict() {
     varDict.table = (VarItem **) calloc(VAR_HASH_TABLE_LEN, sizeof(VarItem *));
 }
 
+/**
+ * 找到哈希表中储存的所有项目
+ * @param len 指向一个size_t类型变量，用于储存返回数组的长度
+ * @return 指向一个VarItem指针数组的指针
+ * @note 一定要记得用完后对结果进行free
+ */
 VarItem **GetVarItems(size_t *len) {
     // 获得变量约束哈希表的所有键值对(key)，记得free
     int sizePerAlloc = 5; // 每次分配时增加多少元素
@@ -46,7 +56,8 @@ VarItem **GetVarItems(size_t *len) {
     return allItems; // 记得free
 }
 
-void DelVarDict() { // 销毁变量约束哈希表
+/** 销毁变量哈希表*/
+void DelVarDict() {
     int i;
     for (i = 0; i < varDict.tableSize; i++) {
         VarItem *temp;
@@ -66,8 +77,12 @@ void DelVarDict() { // 销毁变量约束哈希表
     varDict.tableSize = 0;
 }
 
+/**
+ * 由变量名(字符串)算出对应哈希，利用折叠法
+ * @param varName 待运算字符串
+ * @return 一个无符号整数，作为哈希值
+ */
 unsigned int VarHash(char *varName) {
-    // 由变量名算出对应哈希，利用折叠法
     int i, temp;
     unsigned int result = 0;
     size_t len = strlen(varName); // 字符串长度
@@ -91,6 +106,14 @@ unsigned int VarHash(char *varName) {
     return result > 0 ? result : 0; // 如果返回的是0肯定就失败了
 }
 
+/**
+ * 创建一个哈希表项目
+ * @param varName 变量名（字符串）
+ * @param relation 关系代号
+ * @param num 关系式右边数值
+ * @return 一个指向新分配的哈希表项目VarItem的指针
+ * @note 关系代号-2代表<= -1代表< 1代表> 2代表>= 3代表= 0代表置空(无约束)
+ */
 VarItem *CreateVarItem(char *varName, short int relation, int num) {
     VarItem *new = (VarItem *) calloc(1, sizeof(VarItem)); // 在堆内存中分配一个键值对项目
     new->keyName = (char *) malloc((strlen(varName) + 1) * sizeof(char));
@@ -100,6 +123,11 @@ VarItem *CreateVarItem(char *varName, short int relation, int num) {
     return new;
 }
 
+/**
+ * 将哈希表项目存入表中
+ * @param item 指向哈希表项目VarItem的指针
+ * @return 1/0 代表 是/否 存入成功
+ */
 unsigned int PutVarItem(VarItem *item) { // 将键值对项目存入表中
     unsigned int hash = VarHash(item->keyName); // 计算哈希
     if (hash) {
@@ -125,6 +153,11 @@ unsigned int PutVarItem(VarItem *item) { // 将键值对项目存入表中
     return 1;
 }
 
+/**
+ * 根据变量名查询哈希表项目
+ * @param key 待查询变量名
+ * @return 指向哈希表项目的指针
+ */
 VarItem *GetVarItem(char *key) { // 查询对应变量的项目
     unsigned int hash = VarHash(key);
     VarItem *currentNode = varDict.table[hash];

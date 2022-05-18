@@ -3,7 +3,19 @@
  */
 #include "public.h"
 
-int OFAdd(long prev, long after) { // 加运算溢出判断，返回1则代表溢出
+int OFAdd(long prev, long after);
+
+SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno);
+
+SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno);
+
+/**
+ * 判断两数加减运算是否溢出
+ * @param prev 前一个数
+ * @param after 后一个数
+ * @return 1/0 代表 是/否 发生溢出
+ */
+int OFAdd(long prev, long after) {
     if (prev > 0 && after > LONG_MAX - prev) { // 溢出上界
         return 1;
     } else if (prev < 0 && after < LONG_MIN - prev) { // 溢出下界
@@ -12,6 +24,15 @@ int OFAdd(long prev, long after) { // 加运算溢出判断，返回1则代表�
     return 0;
 }
 
+/**
+ * 根据分子/分母运算乘法
+ * @param prevNume 前一项的分子
+ * @param prevDeno 前一项的分母
+ * @param nextNume 后一项的分子
+ * @param nextDeno 后一项的分母
+ * @return 运算结果: SubNum结构体
+ * @note 单独写这个函数是为了能及时揪出运算溢出
+ */
 SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     // 运算分数乘法
     SubNum result = {.valid=1};
@@ -41,6 +62,15 @@ SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     return result;
 }
 
+/**
+ * 根据分子/分母运算加法
+ * @param prevNume 前一项的分子
+ * @param prevDeno 前一项的分母
+ * @param nextNume 后一项的分子
+ * @param nextDeno 后一项的分母
+ * @return 运算结果: SubNum结构体
+ * @note 单独写这个函数是为了能及时揪出运算溢出
+ */
 SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     // 运算分数加法，专门写出来是为了防止运算溢出
     SubNum result = {.valid=1};
@@ -94,6 +124,12 @@ SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno) {
     return result;
 }
 
+/**
+ * 对Number结构体进行加法运算
+ * @param prev 前一个Number结构体
+ * @param next 后一个Number结构体
+ * @return 运算结果：Number结构体
+ */
 Number NAdd(Number prev, Number next) { // Number加法
     Number result = {.valid=1};
     long int prevNumerator = prev.numerator;
@@ -154,12 +190,25 @@ Number NAdd(Number prev, Number next) { // Number加法
     return result;
 }
 
+/**
+ * 对Number结构体进行减法运算
+ * @param prev 前一个Number结构体
+ * @param next 后一个Number结构体
+ * @return 运算结果：Number结构体
+ * @note 这个方法其实本质是调用NAdd函数
+ */
 Number NSub(Number prev, Number next) { // 减法：prev-next
     next.numerator = -next.numerator;
     next.sub.numerator = -next.sub.numerator; // 取成相反数，1+3M就转换成-1-3M
     return NAdd(prev, next); // 借加法函数一用
 }
 
+/**
+ * 对Number结构体进行乘法运算
+ * @param prev 前一个Number结构体
+ * @param next 后一个Number结构体
+ * @return 运算结果：Number结构体
+ */
 Number NMul(Number prev, Number next) { // 乘法
     Number result = {.valid=1};
     long int prevNumerator = prev.numerator;
@@ -204,6 +253,13 @@ Number NMul(Number prev, Number next) { // 乘法
     return result;
 }
 
+/**
+ * 对Number结构体进行除法运算
+ * @param prev 前一个Number结构体
+ * @param next 后一个Number结构体
+ * @return 运算结果：Number结构体
+ * @note 这个方法其实本质是调用NMul函数
+ */
 Number NDiv(Number prev, Number next) { // 除法
     // 除法其实就是乘倒数
     // 除法主要允许(4M+2)/2 4/2 这种，也就是除数最好不要有常量M，NMul无法运算数字就会导致valid=0
@@ -222,6 +278,11 @@ Number NDiv(Number prev, Number next) { // 除法
     return NMul(prev, next);
 }
 
+/**
+ * 对Number结构体进行取相反数运算
+ * @param num 待运算Number
+ * @return 运算结果：Number结构体
+ */
 Number NInv(Number num) { // 取相反数
     num.numerator = -num.numerator;
     num.sub.numerator = -num.sub.numerator;

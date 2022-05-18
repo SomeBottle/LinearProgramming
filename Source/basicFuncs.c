@@ -1,6 +1,15 @@
 #include "public.h"
 
-SplitResult SplitByChr(char *str, char chr) { // (字符串,字符) 按字符分隔字符串，会返回一个二维数组
+void PrintTerms(Term **item, size_t itemNum);
+
+/**
+ * 按字符分隔字符串
+ * @param str 待分割字符串
+ * @param chr 用于分割的字符
+ * @return SplitResult结构体，包含分割结果数组和分割结果元素个数
+ * @note 使用完结果后一定要记得用freeSplitArr函数进行释放
+ */
+SplitResult SplitByChr(char *str, char chr) {
     int i;
     size_t stringLen = strlen(str);
     size_t bufferSize = sizeof(char) * stringLen;
@@ -35,18 +44,30 @@ SplitResult SplitByChr(char *str, char chr) { // (字符串,字符) 按字符分
     return result; // 返回结果
 }
 
-int freeSplitArr(SplitResult *rs) { // 门当对户地释放SplitByChr的返回结果中的字符二维数组
+/**
+ * 门当对户地释放SplitByChr的返回结果中的堆内存
+ * @param rs 指向SplitByChr返回的结构体的指针
+ */
+void freeSplitArr(SplitResult *rs) {
     int i;
     for (i = 0; i < rs->len; i++) {
         free(rs->split[i]);
     }
     free(rs->split);
     rs->split = NULL;
-    return 1;
 }
 
+/**
+ * 将两段内存连接成一块（返回结果从堆中新分配）
+ * @param prev 指向前一段内存起址的指针
+ * @param prevLen 前一段内存的长度
+ * @param next 指向后一段内存起址的指针
+ * @param nextLen 后一段内存的长度
+ * @param eachSize 每一个元素占字节数
+ * @return 返回指向新分配的连接后内存开头的void指针
+ */
 void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, size_t eachSize) {
-    // 将两段内存连接成一块（重分配），返回指向新分配内存开头的指针
+    //
     // (前一段内存的起址,前一段内存长度,后一段内存的起址,后一段内存长度,类型储存字节大小)
     void *joined = malloc(eachSize * (prevLen + nextLen));
     size_t prevSize = eachSize * prevLen;
@@ -56,7 +77,12 @@ void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, size_t eac
     return joined;
 }
 
-Constant *InConstants(char chr) { // 查找字符chr在常量数组中对应的地址，找不到返回NULL
+/**
+ * 查找字符chr在常量数组内存中对应的地址，找不到返回NULL
+ * @param chr 查找的常量（一个字符）
+ * @return 一个地址
+ */
+Constant *InConstants(char chr) {
     Constant *ptr = NULL;
     if (constants != NULL) {
         int i;
@@ -69,7 +95,12 @@ Constant *InConstants(char chr) { // 查找字符chr在常量数组中对应的�
     return ptr;
 }
 
-int IsConstItem(char *str) { // 判断整个字符串是不是一个常数项
+/**
+ * 判断整个字符串是不是一个常数项
+ * @param str 待判断字符串
+ * @return 1/0 代表 是/否 是常数项
+ */
+int IsConstTerm(char *str) {
     int i;
     unsigned long int len = strlen(str);
     for (i = 0; i < len; i++) {
@@ -81,8 +112,13 @@ int IsConstItem(char *str) { // 判断整个字符串是不是一个常数项
     return 1;
 }
 
+/**
+ * 寻找两数的最大公约数(欧几里得算法)
+ * @param num1 第一个数
+ * @param num2 第二个数
+ * @return 两个数的最大公约数（一定是正数）
+ */
 long int GCD(long int num1, long int num2) {
-    // 寻找两数最大公约数(欧几里得算法)
     long int temp;
     num1 = labs(num1); // GCD规定为正整数
     num2 = labs(num2);
@@ -99,6 +135,12 @@ long int GCD(long int num1, long int num2) {
     return num1;
 }
 
+/**
+ * 寻找两数的最小公倍数
+ * @param num1 第一个数
+ * @param num2 第二个数
+ * @return 两个数的最小公倍数，如果发生溢出就会返回-1
+ */
 long int LCM(long int num1, long int num2) {
     // 最大公约数*最小公倍数=两整数乘积
     // 溢出会返回-1
@@ -113,6 +155,11 @@ long int LCM(long int num1, long int num2) {
     return result;
 }
 
+/**
+ * 将一个代表数字的字符串转化为分数结构体
+ * @param str 待转化字符串
+ * @return Number结构体
+ */
 Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3M/4M 3/4...
     Number result = {.valid=1};
     Constant *cstPtr1 = NULL; // 常量临时指针1
@@ -241,6 +288,11 @@ Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3
     return result;
 }
 
+/**
+ * 将Number结构体转换为double浮点数
+ * @param num 待转换的Number结构体
+ * @return 一个双精度浮点数
+ */
 double Decimalize(Number num) { // 将Number结构体转成double浮点数
     double result = 0;
     if (num.valid) {
@@ -258,13 +310,13 @@ double Decimalize(Number num) { // 将Number结构体转成double浮点数
     return result;
 }
 
+/** 合并多项式中的同类项
+ * @param terms 代表多项式的指针数组
+ * @param len 指向指针数组长度变量的指针
+ * @param forOF 是否用于合并目标函数的同类项
+ * @return 返回合并是否成功
+ */
 int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
-    /* @brief 合并多项式中的同类项
-     * @param terms 代表多项式的指针数组
-     * @param len 指向指针数组长度变量的指针
-     * @param forOF 是否用于合并目标函数的同类项
-     * @return 返回合并是否成功
-     */
     int j, k;
     for (j = 0; j < *termsLen; j++) {
         for (k = j + 1; k < *termsLen; k++) {
@@ -294,10 +346,16 @@ int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
     return 1;
 }
 
+/**
+ * 从多项式指针数组中移除某一项，比如从约束式子左边移去一项
+ * @param terms 指向多项式指针数组的指针
+ * @param len 多项式指针数组长度
+ * @param pos 移除的位置（下标）
+ * @param clean 是否free移除的堆项
+ * @return 多项式指针数组的新长度
+ * @note 如果clean=0，这里的Remove就只是形式上的，并没有对移除项进行free
+ */
 size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
-    // (Term指针, 数组长度, 移除位置, 是否free)
-    // 从Term数组中移除某一项，比如从约束式子左边移去一项
-    // 注：这里的Remove只是形式上的，并没有对项目进行free
     int ptr1, ptr2 = 0; // 双指针法
     for (ptr1 = 0; ptr1 < len; ptr1++) {
         if (ptr1 != pos) {
@@ -309,7 +367,13 @@ size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
     return ptr2; // 数组的新长度
 }
 
-int PrintTerms(Term **item, size_t itemNum) { // 打印多项式
+/**
+ * 打印多项式
+ * @param item 指向多项式指针数组的指针
+ * @param itemNum 多项式指针数组的元素数量
+ * @return
+ */
+void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
     int i;
     long int numeTemp, denoTemp, liesTemp;
     char constName = '\0';
@@ -337,10 +401,13 @@ int PrintTerms(Term **item, size_t itemNum) { // 打印多项式
         if (strlen(item[i]->variable) > 0) // 有变量名的话
             printf("[%s]", item[i]->variable); // 打印变量名
     }
-    return 1;
 }
 
-int PrintModel(LPModel model) { // 打印LP模型
+/**
+ * 在控制台打印LPModel
+ * @param model LPModel结构体
+ */
+void PrintModel(LPModel model) { // 打印LP模型
     int i;
     OF oFunc = model.objective; // 临时拿到目标函数
     ST *subTo = model.subjectTo; // 取到约束数组指针
@@ -372,10 +439,13 @@ int PrintModel(LPModel model) { // 打印LP模型
         PrintTerms(subTo[i].right, subTo[i].rightLen);
         printf("\n");
     }
-    return 1;
 }
 
-int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
+/**
+ * 释放LP模型中的堆内存（销毁模型）
+ * @param model 指向LPModel模型的指针
+ */
+void FreeModel(LPModel *model) {
     int i, j;
     // 先处理目标函数
     OF *oFunc = &model->objective; // 地址引用目标函数结构体
@@ -399,5 +469,4 @@ int FreeModel(LPModel *model) { // 释放LP模型中分配的内存
     }
     free(subTo); // 释放约束指针数组占用的内存
     model->stLen = 0;
-    return 1;
 }
