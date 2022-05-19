@@ -3,11 +3,11 @@
  */
 #include "public.h"
 
+static SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno);
+
+static SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno);
+
 int OFAdd(long prev, long after);
-
-SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno);
-
-SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno);
 
 /**
  * 判断两数加减运算是否溢出

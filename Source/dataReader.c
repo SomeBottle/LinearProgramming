@@ -10,13 +10,13 @@ int constantsNum = 0; // 常数项数量
 // 正在读取哪个部分，为1代表在读目标函数OF，为2代表在读约束ST，3则代表在读取常量CONSTANTS，分开处理。
 static int readFlag = 0;
 
-int InterruptBuffer(char x);
+static int InterruptBuffer(char x);
 
-ST FormulaParser(char *str, int *valid);
+static ST FormulaParser(char *str, int *valid);
 
-ST FormulaSimplify(ST formula, int *valid);
+static ST FormulaSimplify(ST formula, int *valid);
 
-int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str);
+static int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str);
 
 /**
  * 判断是否停止读入当前buffer字符串

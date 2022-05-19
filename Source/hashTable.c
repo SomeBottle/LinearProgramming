@@ -6,7 +6,7 @@
 
 #include "public.h"
 
-unsigned int VarHash(char *varName);
+static unsigned int VarHash(char *varName);
 
 /** 变量约束哈希表*/
 struct { // 创建变量约束哈希表

@@ -24,7 +24,7 @@ int main(int args, char *argv[]) {
                 PrintModel(parsed);
             }
             // 释放常量constants指针数组的堆内存
-            printf("\nFreed CONSTANTS: ");
+            printf("\nFreed CONSTANT(s): ");
             for (i = 0; i < constantsNum; i++)
                 printf("%c ", constants[i].name);
             printf("\n");

@@ -88,6 +88,7 @@ typedef struct { // 分隔字符串返回结果
 } SplitResult;
 
 extern Constant *constants;
+extern int constArrLen;
 extern int constantsNum;
 
 // DataReader Funcs below:
@@ -140,3 +141,9 @@ extern Number NInv(Number num);
 // hashTable Funcs below:
 
 #include "hashTable.h"
+
+// Simplex Funcs below:
+
+extern void LPStandardize(LPModel *model);
+
+extern void TermsSort(Term **terms, size_t termsLen, int rplNeg);
