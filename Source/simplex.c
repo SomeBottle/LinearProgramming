@@ -8,23 +8,119 @@
 
 static int VarCmp(char *str1, char *str2);
 
+static void TermsInvert(Term **terms, size_t termsLen);
+
 /**
- * 将LP模型标准化，用于单纯形算法
+ * 将LP模型化为标准型，用于单纯形算法
  * @param model 指向LPModel的一个指针
  */
 void LPStandardize(LPModel *model) {
     // 感谢文章：https://www.bilibili.com/read/cv5287905
-    
+    int i;
+    size_t varNum;
+    int maxSub;
+    short int valid = 1;
+    // 这一步主要是为了获得当前的x的最大下标
+    // 比如最大下标是x67中的67，那么松弛变量就从68开始，也就是x68
+    // 值得注意的是，松弛变量并没有变量名只能三位的限制
+    free(GetVarItems(&varNum, &maxSub, &valid));
+    if (model->objective.type != 1) { // 目标函数不是求max
+        Term *temp = NULL;
+        model->objective.type = 1;
+        temp = model->objective.left[0];
+        temp->coefficient = NInv(temp->coefficient); // 变成max(-z)
+        // 等式两边同时取反
+        TermsInvert(model->objective.right, model->objective.rightLen);
+    }
+
+    ST *stTemp; // 约束暂存temp
+    Term *termBuffer = NULL;
+    char *strTemp = NULL; // 临时字符串指针
+    for (i = 0; i < model->stLen; i++) {
+        stTemp = model->subjectTo + i;
+        if (stTemp->relation != 3) {// 不是等式
+            strTemp = Int2Str(++maxSub);
+            // 构造一个松弛/剩余变量项
+            // 此时termBuffer指向待加入目标函数的项
+            termBuffer = (Term *) calloc(1, sizeof(Term));
+            termBuffer->variable[0] = 'x'; // 剩余变量和松弛变量都是x
+            strcat(termBuffer->variable, strTemp);
+            // 这一个松弛变量先加到目标函数右边，系数为0
+            termBuffer->coefficient = Fractionize("0");
+            PushTerm(&model->objective.right, termBuffer, &model->objective.rightLen, &model->objective.maxRightLen,
+                     &valid); // 推入目标函数
+            // 接下来准备加入到约束中
+            // 此时termBuffer指向待加入约束方程的项
+            termBuffer = TermCopy(termBuffer); // 复制一份，作为加入约束的剩余变量
+        }
+        switch (stTemp->relation) {
+            case 1: // >
+            case 2: // >=
+                termBuffer->coefficient = Fractionize("-1"); // 减去剩余变量
+                break;
+            case -1: // <
+            case -2: // <=
+                termBuffer->coefficient = Fractionize("1"); // 加上松弛变量
+                break;
+            default:
+                break;
+        }
+        if (strTemp != NULL) { // 临时字符串不为空，说明有松弛/剩余变量加入
+            // 将松弛/剩余变量推入当前约束的左边
+            stTemp->relation = 3; // 弱约束变强约束
+            PushTerm(&stTemp->left, termBuffer, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+            free(strTemp); // 释放临时字符串
+            strTemp = NULL;
+            termBuffer = NULL;
+        }
+        // 接着检查当前约束右边是不是正数
+        // 此时termBuffer指向当前约束右边的常数项
+        termBuffer = stTemp->right[0];
+        if (Decimalize(termBuffer->coefficient) < 0) {
+            // 当前约束右边不是正数，整个方程需要乘个-1
+            // 右侧取相反数
+            termBuffer->coefficient = NInv(termBuffer->coefficient);
+            // 约束左侧取反
+            TermsInvert(stTemp->left, stTemp->leftLen);
+        }
+        // 对当前约束左边的项目按变量名进行排序
+        TermsSort(stTemp->left, stTemp->leftLen);
+    }
+    // 对目标函数右边的项目按变量名进行排序
+    TermsSort(model->objective.right, model->objective.rightLen);
+}
+
+/**
+ * 复制多项式的一个项
+ * @param origin 指向一个项(Term)的指针
+ * @return 指向复制出来的项的指针
+ * @note 记得free
+ */
+Term *TermCopy(Term *origin) {
+    Term *new = (Term *) calloc(1, sizeof(Term));
+    strcpy(new->variable, origin->variable); // 拷贝变量名
+    new->coefficient = origin->coefficient; // 拷贝系数
+    return new;
+}
+
+/**
+ * 将多项式中所有项的系数取相反数
+ * @param terms 指向 多项式指针数组 的指针
+ * @param termsLen  多项式指针数组长度
+ */
+void TermsInvert(Term **terms, size_t termsLen) {
+    unsigned int i;
+    for (i = 0; i < termsLen; i++)
+        terms[i]->coefficient = NInv(terms[i]->coefficient);
 }
 
 /**
  * 根据变量名对多项式进行排序
  * @param terms 指向 多项式指针数组 的指针
  * @param termsLen 多项式指针数组的长度
- * @param rplNeg 1/0 代表 是/否 替换非正决策变量（处理x<=0这种情况）
  * @note 采用选择排序算法
  */
-void TermsSort(Term **terms, size_t termsLen, int rplNeg) {
+void TermsSort(Term **terms, size_t termsLen) {
     unsigned int i, j, minIndex;
     for (i = 0; i < termsLen; i++) {
         minIndex = i;

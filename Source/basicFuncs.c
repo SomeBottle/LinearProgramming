@@ -310,6 +310,23 @@ double Decimalize(Number num) { // 将Number结构体转成double浮点数
     return result;
 }
 
+/**
+ * 将整型数字转换为字符串
+ * @param num 待转换数值(int)
+ * @return 一个指向字符串开头的指针
+ * @note 返回的字符串分配在堆中，记得free
+ */
+char *Int2Str(int num) {
+    int original = num;
+    size_t digits = 1; // 位数
+    while ((num /= (10 * digits)) != 0)
+        digits++;
+    // 根据位数分配字符串长度
+    char *str = (char *) calloc(digits + 1, sizeof(char));
+    sprintf(str, "%d", original); // 数字打印进字符串
+    return str;
+}
+
 /** 合并多项式中的同类项
  * @param terms 代表多项式的指针数组
  * @param len 指向指针数组长度变量的指针
@@ -344,6 +361,17 @@ int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
         }
     }
     return 1;
+}
+
+/**
+ * 检查变量是否合规
+ * @param str 待检查变量字符串
+ * @return 1/0 代表 是/否 合规
+ * @note 规定变量名第一个为字母，后面两位是数字
+ */
+short int ValidVar(char *str) {
+    char digits[] = "0123456789";
+    return (short int) (isalpha(str[0]) && strspn(str + 1, digits) == strlen(str + 1));
 }
 
 /**
@@ -387,7 +415,7 @@ void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
         if (i == 0) { // 是第一项
             printf("%ld", numeTemp);
         } else {
-            printf(numeTemp > 0 ? " + %ld" : " - %ld", labs(numeTemp));
+            printf(numeTemp >= 0 ? " + %ld" : " - %ld", labs(numeTemp));
         }
         // 如果常量在分子，打印一下
         if (constName != '\0' && liesTemp == 0)

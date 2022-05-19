@@ -22,6 +22,9 @@ int main(int args, char *argv[]) {
             if (parsed.valid) { // LP模型有效
                 printf("LPModel Successfully Parsed in %fs.\n\n", timeCost);
                 PrintModel(parsed);
+                LPStandardize(&parsed);
+                printf("\nStandard model for Simplex:\n\n");
+                PrintModel(parsed);
             }
             // 释放常量constants指针数组的堆内存
             printf("\nFreed CONSTANT(s): ");

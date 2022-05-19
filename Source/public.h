@@ -15,11 +15,11 @@
     getchar()
 #endif
 
-#define BUFFER_SIZE_PER_ALLOC 50 /** 每次分配给字符串暂存区的元素个数*/
-#define CONSTANTS_SIZE_PER_ALLOC 10 /** 每次分配给常数项暂存区的元素个数*/
-#define RESET_BUFFER (char *) calloc(BUFFER_SIZE_PER_ALLOC, sizeof(char)) /** 字符串暂存区，最开始分配50个*/
-#define ST_SIZE_PER_ALLOC 5 /** 每次分配给约束SubjectTo的元素个数*/
-
+#define BUFFER_LEN_PER_ALLOC 50 /** 每次分配给字符串暂存区的元素个数*/
+#define CONSTANTS_LEN_PER_ALLOC 10 /** 每次分配给常数项暂存区的元素个数*/
+#define RESET_BUFFER (char *) calloc(BUFFER_LEN_PER_ALLOC, sizeof(char)) /** 字符串暂存区，最开始分配50个*/
+#define ST_LEN_PER_ALLOC 5 /** 每次分配给约束SubjectTo的元素个数*/
+#define TERMS_LEN_PER_ALLOC 5 /** 每次分配给方程中多项式的元素个数*/
 #define VAR_HASH_TABLE_LEN 210 /** 变量哈希数组长度*/
 
 struct inc_constant; // 因为Number和Constant是有互相包含的
@@ -47,13 +47,14 @@ struct inc_number { // 数字结构体（用于表示分数，小数，整数）
 
 struct inc_constant { // 常量结构体
     char name; // 常量名（一个字符）
-    int relation; // 常量关系，数字表示: < 1 ; <= 2 ;3 = ; > 4 ; >= 5
+    // 关系符号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
+    short int relation; // 常量关系
     Number val; // 值
 };
 
 typedef struct { // 方程中的一项，包括系数，变量名
     Number coefficient; // 系数
-    char variable[4]; // 变量名
+    char variable[8]; // 变量名
 } Term;
 
 typedef struct { // 目标线性函数
@@ -62,6 +63,8 @@ typedef struct { // 目标线性函数
     size_t leftLen; // 左侧数量（目标函数左边是z，所以这里只能是1）
     Term **right;
     size_t rightLen; // 右侧数量
+    size_t maxLeftLen; // 左侧最多容纳的项数
+    size_t maxRightLen; // 右侧最多容纳的项数
     short int type; // 最大值(max用1代表)还是最小值(min用-1代表)
 } OF;
 
@@ -71,8 +74,10 @@ typedef struct { // 约束条件
     size_t leftLen; // 左侧数量
     Term **right; // 方程右边
     size_t rightLen; // 右侧数量
-    short int relation;
+    size_t maxLeftLen; // 左侧最多容纳的项数
+    size_t maxRightLen; // 右侧最多容纳的项数
     // 关系符号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
+    short int relation;
 } ST;
 
 typedef struct { // 线性规划数学模型，包括线性函数数组和约束数组
@@ -96,6 +101,8 @@ extern int constantsNum;
 extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 extern void LPTrans(LPModel *model);
 
+extern void PushTerm(Term ***terms, Term *toPut, size_t *ptr, size_t *maxLen, short int *valid);
+
 // Basic Funcs below:
 
 extern SplitResult SplitByChr(char *str, char chr);
@@ -106,6 +113,8 @@ extern Number Fractionize(char *str);
 
 extern double Decimalize(Number num);
 
+extern char *Int2Str(int num);
+
 extern int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF);
 
 extern void FreeModel(LPModel *model);
@@ -113,6 +122,8 @@ extern void FreeModel(LPModel *model);
 extern Constant *InConstants(char chr);
 
 extern int IsConstTerm(char *str);
+
+extern short int ValidVar(char *str);
 
 extern size_t RmvTerm(Term **terms, size_t len, int pos, int clean);
 
@@ -146,4 +157,6 @@ extern Number NInv(Number num);
 
 extern void LPStandardize(LPModel *model);
 
-extern void TermsSort(Term **terms, size_t termsLen, int rplNeg);
+extern void TermsSort(Term **terms, size_t termsLen);
+
+extern Term *TermCopy(Term *origin);

@@ -25,28 +25,44 @@ void InitVarDict() {
 }
 
 /**
- * 找到哈希表中储存的所有项目
+ * 获取哈希表中储存的所有项目
  * @param len 指向一个size_t类型变量，用于储存返回数组的长度
+ * @param maxSub x开头变量的最大下标
+ * @param valid 指向一个变量，这个变量存放 1/0 代表 是/否 获取成功
  * @return 指向一个VarItem指针数组的指针
+ * @note maxSub参数是为了松弛变量做准备
+ * @note 比如当前下标最大的是x67，那么松弛变量就从x68开始
  * @note 一定要记得用完后对结果进行free
  */
-VarItem **GetVarItems(size_t *len) {
+VarItem **GetVarItems(size_t *len, int *maxSub, short int *valid) {
     // 获得变量约束哈希表的所有键值对(key)，记得free
     int sizePerAlloc = 5; // 每次分配时增加多少元素
     size_t maxLen = sizePerAlloc; // 返回的指针数组长度
     int ptr = 0, i; // 当前指向的地址
+    int currentSub;
     VarItem **allItems = (VarItem **) calloc(maxLen, sizeof(VarItem *));
     VarItem *currentNode;
+    *maxSub = 0; // 最小的x下标
+    *valid = *valid && 1;
     for (i = 0; i < varDict.tableSize; i++) {
         currentNode = varDict.table[i];
         if (currentNode != NULL) { // 这里有数据
             currentNode = currentNode->next; // 从首个节点开始
             while (currentNode != NULL) {
+                currentSub = atoi(currentNode->keyName + 1);
                 allItems[ptr++] = currentNode; // 存入结果列表
+                if (currentNode->keyName[0] == 'x' && currentSub > *maxSub)
+                    *maxSub = currentSub; // 找到x的最大下标，用于添加松弛变量
+
                 if (ptr >= maxLen) { // 结果数组长度不够了，重新分配一下
                     maxLen += sizePerAlloc; // 增加元素
                     allItems = (VarItem **) realloc(allItems, sizeof(VarItem *) * maxLen);
-                    memset(allItems + ptr, 0, sizePerAlloc); // 清空新分配的内存
+                    if (allItems != NULL) {
+                        memset(allItems + ptr, 0, sizePerAlloc); // 清空新分配的内存
+                    } else { // 内存重分配失败
+                        *valid = 0;
+                        printf("Memory reallocation failed when getting VarItems.\n");
+                    }
                 }
                 currentNode = currentNode->next;
             }
@@ -84,19 +100,17 @@ void DelVarDict() {
  */
 unsigned int VarHash(char *varName) {
     int i, temp;
+    if (!ValidVar(varName)) {
+        printf("Var hashing failed: invalid variable name.\n");
+        return 0;
+    }
     unsigned int result = 0;
     size_t len = strlen(varName); // 字符串长度
     for (i = 0; i < len; i++) {
-        if (isalnum(varName[i])) {
-            temp = (int) varName[i]; // 折叠法
-            if (i > 0)
-                temp -= 48; // 后面两个字符的ASCII可以减去48
-            result += temp;
-        } else { // 字符串必须全部是字母或者数字
-            printf("Variable hashing failed: all of the chars must be Number or Letters in alphabet.\n");
-            result = 0;
-            break;
-        }
+        temp = (int) varName[i]; // 折叠法
+        if (i > 0)
+            temp -= 48; // 后面两个字符的ASCII可以减去48
+        result += temp;
     }
     /* 因为规定变量最多三个字符，且必须以字母开头，所以第一个字符ASCII码从65开始
      * 后两个字符ASCII码则是从48开始到122为止（0-z）

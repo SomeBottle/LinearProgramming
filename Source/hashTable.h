@@ -23,6 +23,6 @@ extern unsigned int PutVarItem(VarItem *item);
 
 extern VarItem *GetVarItem(char *key);
 
-extern VarItem **GetVarItems(size_t *len);
+extern VarItem **GetVarItems(size_t *len, int *maxSub, short int *valid);
 
 extern void DelVarDict();

@@ -4,7 +4,7 @@
 #include "public.h"
 
 Constant *constants = NULL; // 常数项指针数组
-int constArrLen = CONSTANTS_SIZE_PER_ALLOC; // 常量项数组长度，防止溢出用
+int constArrLen = CONSTANTS_LEN_PER_ALLOC; // 常量项数组长度，防止溢出用
 int constantsNum = 0; // 常数项数量
 
 // 正在读取哪个部分，为1代表在读目标函数OF，为2代表在读约束ST，3则代表在读取常量CONSTANTS，分开处理。
@@ -12,9 +12,9 @@ static int readFlag = 0;
 
 static int InterruptBuffer(char x);
 
-static ST FormulaParser(char *str, int *valid);
+static ST FormulaParser(char *str, short int *valid);
 
-static ST FormulaSimplify(ST formula, int *valid);
+static ST FormulaSimplify(ST formula, short int *valid);
 
 static int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str);
 
@@ -43,7 +43,7 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
  * @param model 指向LP模型的指针
  */
 void LPTrans(LPModel *model) {
-    int i, j, k;
+    int i, j;
     ST *stTemp = NULL;
     Term *termTemp = NULL;
 
@@ -123,7 +123,8 @@ void LPTrans(LPModel *model) {
     }
     // 最后检查目标函数中的决策变量是否都正好存在于约束中，不能多也不能少
     size_t tableVarNum = 0;
-    free(GetVarItems(&tableVarNum)); // 获得哈希表中变量的数量
+    int maxSub = 0;
+    free(GetVarItems(&tableVarNum, &maxSub, &model->valid)); // 获得哈希表中变量的数量
     // 因为在合并约束的同类项时会将变量写入哈希表，
     // 如果 哈希表存放的变量数量 和 合并后的目标函数右边变量的数量 不匹配就肯定少写了或多写了约束
     if (tableVarNum != model->objective.rightLen) {
@@ -145,18 +146,18 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             .leftLen=0,
             .rightLen=0
     }; // 初始化目标函数结构体
-    ST *subjectTo = (ST *) calloc(ST_SIZE_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
+    ST *subjectTo = (ST *) calloc(ST_LEN_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
     int stPtr = 0; // 约束数组指针
-    int stSize = ST_SIZE_PER_ALLOC; // 约束数组总长度
-    int valid = 1; // 模型是否有效
+    int stSize = ST_LEN_PER_ALLOC; // 约束数组总长度
+    short int valid = 1; // 模型是否有效
     char currentChar;
     int bufferPointer = 0; // 字符串暂存区指针
-    int bufferLen = BUFFER_SIZE_PER_ALLOC; // 字符串暂存区长度，防止溢出
+    int bufferLen = BUFFER_LEN_PER_ALLOC; // 字符串暂存区长度，防止溢出
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
     if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
-        constants = (Constant *) calloc(CONSTANTS_SIZE_PER_ALLOC, sizeof(Constant));
+        constants = (Constant *) calloc(CONSTANTS_LEN_PER_ALLOC, sizeof(Constant));
         Constant cstTemp = {
-                .relation=4,
+                .relation=1,
                 .name='M',
                 .val=Fractionize("0") // 大M法专用M>0
         };
@@ -169,11 +170,11 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             buffer[bufferPointer] = currentChar; // 推入buffer
             bufferPointer++;
             if (bufferPointer >= bufferLen) {// 字符串暂存数组长度不够用了
-                bufferLen += BUFFER_SIZE_PER_ALLOC; // 长度续上100
+                bufferLen += BUFFER_LEN_PER_ALLOC; // 长度续上100
                 buffer = (char *) realloc(buffer, sizeof(char) * bufferLen); // 重新分配内存，增长区域
                 if (buffer != NULL) { // 分配成功
                     // 初始化从当前指针到新分配长度的末尾的内存
-                    memset(buffer + bufferPointer, 0, sizeof(char) * BUFFER_SIZE_PER_ALLOC);
+                    memset(buffer + bufferPointer, 0, sizeof(char) * BUFFER_LEN_PER_ALLOC);
                 } else {
                     printf("Memory re-allocation failed when reading file.");
                     valid = 0;
@@ -195,7 +196,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             // printf("len:%d, Str: %s\n", strlen(buffer), buffer);
             free(buffer); // 释放内存块，抛弃当前暂存区
             bufferPointer = 0; // 初始化暂存区指针
-            bufferLen = BUFFER_SIZE_PER_ALLOC; // 初始化
+            bufferLen = BUFFER_LEN_PER_ALLOC; // 初始化
             buffer = RESET_BUFFER; // 重设字符串暂存区
         }
         if (currentChar == '}') { // 遇到反大括号，当前部分读取完毕
@@ -225,13 +226,38 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
 }
 
 /**
+ * 将新的项推入多项式数组尾部
+ * @param terms 指向 指向多项式指针数组的指针 的指针
+ * @param toPut 指向待推入的项目的指针
+ * @param ptr 指向当前多项式末尾的指针（多项式中的项数）
+ * @param maxLen 当前多项式指针数组能容纳的最多元素数量
+ * @param valid 指向一个变量的指针，这个变量存放 1/0 以代表 是/否 推入成功
+ */
+void PushTerm(Term ***terms, Term *toPut, size_t *ptr, size_t *maxLen, short int *valid) {
+    (*terms)[(*ptr)++] = toPut;
+    *valid = *valid && 1;
+    if (*ptr >= *maxLen) { // 多项式指针数组存放不下了，需要扩充
+        (*maxLen) += TERMS_LEN_PER_ALLOC;
+        // 重分配内存
+        *terms = (Term **) realloc(*terms, sizeof(Term *) * (*maxLen));
+        if (*terms != NULL) {
+            // 清空新分配的内存部分
+            memset((*terms) + *ptr, 0, TERMS_LEN_PER_ALLOC);
+        } else { // 内存分配失败
+            printf("Memory reallocation failed when pushing a Term.\n");
+            *valid = 0;
+        }
+    }
+}
+
+/**
  * 将方程字符串解析为一个约束方程结构体(ST)
  * @param str 待处理字符串
  * @param valid 指向一个变量，用于储存 1/0 代表当前字符串 是/否 解析成功
  * @return 一个约束方程结构体ST
  * @note 通常这个和WriteIn函数结合使用，单独使用时请记得free
  */
-ST FormulaParser(char *str, int *valid) {
+ST FormulaParser(char *str, short int *valid) {
     int i, len = strlen(str);
     char currentChar, nextChar;
     int writeSide = 0; // 在写入哪边，0 代表关系符号左边，1 代表右边
@@ -240,8 +266,10 @@ ST FormulaParser(char *str, int *valid) {
     ST result = { // 返回结果
             .leftLen=0,
             .rightLen=0,
-            .left=(Term **) calloc(len, sizeof(Term *)),
-            .right=(Term **) calloc(len, sizeof(Term *))
+            .left=(Term **) calloc(TERMS_LEN_PER_ALLOC, sizeof(Term *)),
+            .right=(Term **) calloc(TERMS_LEN_PER_ALLOC, sizeof(Term *)),
+            .maxLeftLen=TERMS_LEN_PER_ALLOC,
+            .maxRightLen=TERMS_LEN_PER_ALLOC,
     };
     short int thanMark; // 小于号thanMark=-1，大于号thanMark=1
     int bufferPointer = 0; // 字符串暂存区指针
@@ -261,12 +289,18 @@ ST FormulaParser(char *str, int *valid) {
                 } else {
                     strncpy(termBuffer->variable, buffer, 3); // 变量名最多3个字符
                     termBuffer->variable[3] = '\0'; // 手动构造字符串
+                    if (!ValidVar(termBuffer->variable)) { // 变量名不合规
+                        *valid = 0;
+                        printf("ERROR: Invalid variable name: %s\n", termBuffer->variable);
+                        break;
+                    }
                 }
                 cfcRead = 0; // 一项系数读取完毕，标记归位
                 if (writeSide == 0) { // 写到左边
-                    result.left[result.leftLen++] = termBuffer; // 把一项存入数组，作为式子左端
+                    // 把一项存入数组，作为式子左端
+                    PushTerm(&result.left, termBuffer, &result.leftLen, &result.maxLeftLen, valid);
                 } else if (writeSide == 1) {
-                    result.right[result.rightLen++] = termBuffer; // 作为式子右端
+                    PushTerm(&result.right, termBuffer, &result.rightLen, &result.maxRightLen, valid);
                 }
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0; // 重置字符串缓冲区
@@ -316,7 +350,7 @@ ST FormulaParser(char *str, int *valid) {
  * @return 处理后的约束方程结构体ST
  * @note 这个函数主要的工作是化简，找出式子两边的最大公约数
  */
-ST FormulaSimplify(ST formula, int *valid) {
+ST FormulaSimplify(ST formula, short int *valid) {
     // 校验，化简处理
     if ((formula.leftLen < 1 || formula.rightLen < 1) || // 左边和右边都至少要有一项
         !formula.relation) // 缺少关系符号，方程无效
@@ -366,7 +400,7 @@ ST FormulaSimplify(ST formula, int *valid) {
  * @note 本函数根据readFlag决定是写入模型的目标函数还是约束方程，1代表写入目标函数，2代表写入约束方程
  */
 int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) {
-    int status = 1; // 返回码
+    short int status = 1; // 返回码
     SplitResult colonSp; // 初始化分割字符串
     ST formulaResult;
     switch (readFlag) {
@@ -388,6 +422,8 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
                         Decimalize(formulaResult.left[0]->coefficient) == 1) { // 左边z系数必须为1
                         linearFunc->left = formulaResult.left;
                         linearFunc->right = formulaResult.right;
+                        linearFunc->maxLeftLen = formulaResult.maxLeftLen;
+                        linearFunc->maxRightLen = formulaResult.maxRightLen;
                         linearFunc->leftLen = formulaResult.leftLen;
                         linearFunc->rightLen = formulaResult.rightLen; // 结果存入linearFunc
                     } else {
@@ -408,15 +444,17 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
             formulaResult = FormulaParser(str, &status); // 解析约束
             (*subjectTo)[(*stPtr)++] = formulaResult;
             if (*stPtr >= *stSize) { // 约束结构体数组放不下了，需要重分配
-                (*stSize) += ST_SIZE_PER_ALLOC; // 扩充内存大小
+                (*stSize) += ST_LEN_PER_ALLOC; // 扩充内存大小
                 *subjectTo = (ST *) realloc(*subjectTo, (*stSize) * sizeof(ST));
                 if (*subjectTo != NULL) {
-                    memset(*subjectTo + *stPtr, 0, ST_SIZE_PER_ALLOC * sizeof(ST));
+                    memset(*subjectTo + *stPtr, 0, ST_LEN_PER_ALLOC * sizeof(ST));
                 } else { // 内存分配失败
                     status = 0;
                     printf("Memory re-allocation failed when parsing constraints.\n");
                 }
             }
+            break;
+        default:
             break;
     }
     return status;
