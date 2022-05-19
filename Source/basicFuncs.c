@@ -367,7 +367,7 @@ int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
  * 检查变量是否合规
  * @param str 待检查变量字符串
  * @return 1/0 代表 是/否 合规
- * @note 规定变量名第一个为字母，后面两位是数字
+ * @note 规定变量名第一位为字母，后面两位是数字
  */
 short int ValidVar(char *str) {
     char digits[] = "0123456789";
