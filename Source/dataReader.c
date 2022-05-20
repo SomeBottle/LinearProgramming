@@ -229,12 +229,21 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
  * 将新的项推入多项式数组尾部
  * @param terms 指向 指向多项式指针数组的指针 的指针
  * @param toPut 指向待推入的项目的指针
+ * @param pos 推入的位置，-1则推到数组末尾
  * @param ptr 指向当前多项式末尾的指针（多项式中的项数）
  * @param maxLen 当前多项式指针数组能容纳的最多元素数量
  * @param valid 指向一个变量的指针，这个变量存放 1/0 以代表 是/否 推入成功
  */
-void PushTerm(Term ***terms, Term *toPut, size_t *ptr, size_t *maxLen, short int *valid) {
-    (*terms)[(*ptr)++] = toPut;
+void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, short int *valid) {
+    if (pos == -1) { // pos=-1则将新元素加在数组尾部
+        (*terms)[(*ptr)++] = toPut;
+    } else {
+        int i = 0;
+        Term *temp = NULL; // 单项的副本
+        for (i = (*ptr)++; i > pos; i--) // 从pos开始的项统统后移
+            (*terms)[i] = (*terms)[i - 1];
+        (*terms)[pos] = toPut;
+    }
     *valid = *valid && 1;
     if (*ptr >= *maxLen) { // 多项式指针数组存放不下了，需要扩充
         (*maxLen) += TERMS_LEN_PER_ALLOC;
@@ -298,9 +307,9 @@ ST FormulaParser(char *str, short int *valid) {
                 cfcRead = 0; // 一项系数读取完毕，标记归位
                 if (writeSide == 0) { // 写到左边
                     // 把一项存入数组，作为式子左端
-                    PushTerm(&result.left, termBuffer, &result.leftLen, &result.maxLeftLen, valid);
+                    PushTerm(&result.left, termBuffer, -1, &result.leftLen, &result.maxLeftLen, valid);
                 } else if (writeSide == 1) {
-                    PushTerm(&result.right, termBuffer, &result.rightLen, &result.maxRightLen, valid);
+                    PushTerm(&result.right, termBuffer, -1, &result.rightLen, &result.maxRightLen, valid);
                 }
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0; // 重置字符串缓冲区

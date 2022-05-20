@@ -20,7 +20,6 @@
 #define RESET_BUFFER (char *) calloc(BUFFER_LEN_PER_ALLOC, sizeof(char)) /** 字符串暂存区，最开始分配50个*/
 #define ST_LEN_PER_ALLOC 5 /** 每次分配给约束SubjectTo的元素个数*/
 #define TERMS_LEN_PER_ALLOC 5 /** 每次分配给方程中多项式的元素个数*/
-#define VAR_HASH_TABLE_LEN 210 /** 变量哈希数组长度*/
 
 struct inc_constant; // 因为Number和Constant是有互相包含的
 struct inc_number; // 需要用到结构体不完全声明(incomplete)
@@ -101,7 +100,7 @@ extern int constantsNum;
 extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 extern void LPTrans(LPModel *model);
 
-extern void PushTerm(Term ***terms, Term *toPut, size_t *ptr, size_t *maxLen, short int *valid);
+extern void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, short int *valid);
 
 // Basic Funcs below:
 

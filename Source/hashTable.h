@@ -4,6 +4,9 @@
  */
 #include <stdio.h>
 
+
+#define VAR_HASH_TABLE_LEN 210 /** 变量哈希数组长度*/
+
 /**
  * 变量哈希表的一个项目的结构体
  * @note 关于relation：-2代表<= -1代表< 1代表> 2代表>= 3代表= 0代表置空(无约束)

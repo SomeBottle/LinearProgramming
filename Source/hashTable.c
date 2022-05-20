@@ -10,7 +10,7 @@ static unsigned int VarHash(char *varName);
 
 /** 变量约束哈希表*/
 struct { // 创建变量约束哈希表
-    int tableSize; // 哈希表底层数组长度
+    size_t tableSize; // 哈希表底层数组长度
     VarItem **table;
     // 存放VarItem指针的指针变量，这样做是为了把所有VarItem放在堆内存中，
     // 不然初始化数组大小就得是sizeof(VarItem)*项目数了，这是一笔不菲的内存消耗。
@@ -109,11 +109,11 @@ unsigned int VarHash(char *varName) {
     for (i = 0; i < len; i++) {
         temp = (int) varName[i]; // 折叠法
         if (i > 0)
-            temp -= 48; // 后面两个字符的ASCII可以减去48
+            temp -= 48; // 后面字符的ASCII可以减去48
         result += temp;
     }
     /* 因为规定变量最多三个字符，且必须以字母开头，所以第一个字符ASCII码从65开始
-     * 后两个字符ASCII码则是从48开始到122为止（0-z）
+     * 后面的字符ASCII码则是从48开始到122为止（0-z）
      * 为求简便，hash结果中可以减去一部分
      */
     result -= 65;
@@ -145,6 +145,21 @@ VarItem *CreateVarItem(char *varName, short int relation, int num) {
 unsigned int PutVarItem(VarItem *item) { // 将键值对项目存入表中
     unsigned int hash = VarHash(item->keyName); // 计算哈希
     if (hash) {
+        if (hash >= varDict.tableSize) { // 算出的哈希大于分配的哈希数组长度，不够放了
+            // 重新进行分配
+            size_t newSize = hash + 1; // 新的数组大小
+            size_t sizeDiff = newSize - varDict.tableSize; // 新分配了多少个元素
+            varDict.table = (VarItem **) realloc(varDict.table, sizeof(VarItem *) * newSize);
+            if (varDict.table != NULL) {
+                // 清空新分配的内存部分
+                memset(varDict.table + varDict.tableSize, 0, sizeof(VarItem *) * sizeDiff);
+                // 重标记数组大小
+                varDict.tableSize = newSize;
+            } else { // 重分配失败
+                printf("Memory reallocation failed when putting VarItem");
+                return 0;
+            }
+        }
         VarItem *currentNode = varDict.table[hash];
         if (currentNode == NULL) { // 这个哈希对应的链地址还未初始化
             currentNode = (VarItem *) calloc(1, sizeof(VarItem));

@@ -49,7 +49,7 @@ void LPStandardize(LPModel *model) {
             // 这一个松弛变量先加到目标函数右边，系数为0
             termBuffer->coefficient = Fractionize("0");
             // 推入目标函数
-            PushTerm(&model->objective.right, termBuffer, &model->objective.rightLen, &model->objective.maxRightLen,
+            PushTerm(&model->objective.right, termBuffer, -1, &model->objective.rightLen, &model->objective.maxRightLen,
                      &valid);
             // 接下来准备将松弛/剩余变量加入到约束中
             // 此时termBuffer指向待加入约束方程的项
@@ -70,7 +70,7 @@ void LPStandardize(LPModel *model) {
         if (termBuffer != NULL) { // termBuffer不为空，说明有松弛/剩余变量加入
             // 将松弛/剩余变量推入当前约束的左边
             stTemp->relation = 3; // 弱约束变强约束
-            PushTerm(&stTemp->left, termBuffer, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+            PushTerm(&stTemp->left, termBuffer, -1, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
             termBuffer = NULL;
         }
         // 接着检查当前约束右边是不是正数
@@ -141,8 +141,9 @@ void RplUnrVars(Term **terms, size_t termsLen, int *currentSub) {
     for (i = 0; i < termsLen; i++) {
         varTemp = GetVarItem(terms[i]->variable);
         if (varTemp->relation == 0) { // 是一个无约束(unr)变量
-            // PushTerm函数需要新增一个pos参数，用于在多项式指定位置插入
+            // PushTerm函数需要新增一个pos参数，用于在多项式指定位置插入√
             // 另外用到RmvTerm方法（原型定义在basicFuncs中）
+            // 记得重写一下PutVarItem，超出底层数组范围时需要重分配√
         }
     }
 }
