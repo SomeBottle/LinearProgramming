@@ -1,6 +1,8 @@
 #include "public.h"
 
-void PrintTerms(Term **item, size_t itemNum);
+static void PrintTerms(Term **item, size_t itemNum);
+
+static void PrintRelation(short int code);
 
 /**
  * 按字符分隔字符串
@@ -396,6 +398,16 @@ size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
 }
 
 /**
+ * 根据代号打印关系符号
+ * @param code 关系代号
+ * @note 代号 -2代表<= -1代表< 1代表> 2代表>= 3代表=
+ */
+void PrintRelation(short int code) {
+    char symbols[][3] = {"<=", "<", "?", ">", ">=", "="};
+    printf("%s", symbols[code + 2]);
+}
+
+/**
  * 打印多项式
  * @param item 指向多项式指针数组的指针
  * @param itemNum 多项式指针数组的元素数量
@@ -426,8 +438,12 @@ void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
             if (constName != '\0' && liesTemp == 1)
                 printf("%c", constName);
         }
-        if (strlen(item[i]->variable) > 0) // 有变量名的话
-            printf("[%s]", item[i]->variable); // 打印变量名
+        if (strlen(item[i]->variable) > 0) { // 有变量名的话
+            printf("[%s", item[i]->variable); // 打印变量名
+            if (item[i]->inverted) // 如果用x'代替了-x，就在输出的时候加一撇
+                printf("'");
+            printf("]");
+        }
     }
 }
 
@@ -447,26 +463,36 @@ void PrintModel(LPModel model) { // 打印LP模型
     for (i = 0; i < model.stLen; i++) {
         printf("\t");
         PrintTerms(subTo[i].left, subTo[i].leftLen); // 一项一项打印出来
-        switch (subTo[i].relation) {
-            case -2:
-                printf(" %s ", "<="); // 打印关系符号
-                break;
-            case -1:
-                printf(" %s ", "<");
-                break;
-            case 1:
-                printf(" %s ", ">");
-                break;
-            case 2:
-                printf(" %s ", ">=");
-                break;
-            case 3:
-                printf(" %s ", "=");
-                break;
-        }
+        PrintRelation(subTo[i].relation); // 打印关系符号
         PrintTerms(subTo[i].right, subTo[i].rightLen);
         printf("\n");
     }
+    // 输出变量约束情况
+    printf("\nVariables:\n\t");
+    short int valid = 1;
+    size_t varNum = 0;
+    VarItem **allVars = GetVarItems(&varNum, NULL, &valid);
+    if (!valid) {
+        printf("Failed to get.\n");
+    } else {
+        VarItem *temp = NULL;
+        for (i = 0; i < varNum; i++) {
+            temp = allVars[i];
+            if (temp->relation != 0) { // 该变量有约束
+                printf("%s", temp->keyName);
+                PrintRelation(temp->relation);
+                printf("%d | ", temp->number);
+            } else { // 该变量无约束(unr)
+                printf("%s(unr)", temp->keyName);
+                if (strlen(temp->formerX) > 0) // 如果已经用x''-x'代替了x(unr)
+                    printf("=%s-%s", temp->formerX, temp->latterX);
+                printf(" | ");
+            }
+        }
+    }
+    printf("\n");
+    // 用完后释放，好习惯
+    free(allVars);
 }
 
 /**

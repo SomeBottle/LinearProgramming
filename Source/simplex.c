@@ -20,15 +20,14 @@ static Term *CreateSlack(int *currentSub, short int *valid);
  */
 void LPStandardize(LPModel *model) {
     // 感谢文章：https://www.bilibili.com/read/cv5287905
-    int i;
-    size_t varNum;
+    unsigned int i, j, k;
     // 当前x的下标
     int currentSub;
-    short int valid = 1;
+    short int valid = model->valid;
     // 这一步主要是为了获得当前的x的最大下标
     // 比如最大下标是x67中的67，那么松弛变量就从68开始，也就是x68
     // 值得注意的是，松弛变量并没有变量名只能三位的限制
-    free(GetVarItems(&varNum, &currentSub, &valid));
+    free(GetVarItems(NULL, &currentSub, &valid));
     if (model->objective.type != 1) { // 目标函数不是求max
         Term *temp = NULL;
         model->objective.type = 1;
@@ -38,8 +37,68 @@ void LPStandardize(LPModel *model) {
         TermsInvert(model->objective.right, model->objective.rightLen);
     }
 
+    Term *termBuffer = NULL; // 单项暂存区
+    VarItem *varTemp = NULL; // 变量约束暂存区
+    for (i = 0; i < model->objective.rightLen; i++) {
+        // 扫描处理没有限制的变量(替换模型中无约束(unr)变量为x'' - x'的形式)
+        // 此时termBuffer指向目标函数右边的某一项
+        char targetVar[8]; // 暂存变量名
+        termBuffer = model->objective.right[i];
+        varTemp = GetVarItem(termBuffer->variable); // 获得变量约束项
+        if (!varTemp->relation) { // 这一项x没有约束(unr)
+            strcpy(targetVar, termBuffer->variable); // 复制变量名，方便后面在约束中寻找
+            Number originC = termBuffer->coefficient; // 备份unr项的系数
+            // 创建前一个变量x''>=0
+            Term *formerX = CreateSlack(&currentSub, &valid);
+            Number formerC = Fractionize("1"); // 前一项的系数
+            formerC = NMul(formerC, originC); // 和原来的系数相乘（乘法分配律）
+            formerX->coefficient = formerC; // 存入系数
+            // 将目标函数右侧这个unr项给free掉（没有用了）
+            free(termBuffer);
+            termBuffer = NULL; // termBuffer置空，防止野指针
+            model->objective.right[i] = formerX; // 这个位置被替代成前一个变量x''
+            // 创建后一个变量x'
+            Term *latterX = CreateSlack(&currentSub, &valid);
+            Number latterC = Fractionize("-1"); // 后一项的系数 (要形成x''-x')
+            latterC = NMul(latterC, originC); // 仍然是乘法分配律
+            latterX->coefficient = latterC; // 存入系数
+            // 加入到目标函数中
+            PushTerm(&model->objective.right, latterX, i + 1, &model->objective.rightLen, &model->objective.maxRightLen,
+                     &valid);
+            // 用x''-x'替代了x(unr)，需要把x''和x'记录到对应的表项中
+            strcpy(varTemp->formerX, formerX->variable);
+            strcpy(varTemp->latterX, latterX->variable);
+            // 遍历位后移（加入了两个元素，其中替换了一个元素，增加了一个元素，实际增加一位）
+            i++;
+            for (j = 0; j < model->stLen; j++) { // 遍历约束
+                ST *stTemp = model->subjectTo + j; // 暂存约束
+                for (k = 0; k < stTemp->leftLen; k++) { // 遍历每个约束左边的项
+                    if (strcmp(stTemp->left[k]->variable, targetVar) == 0) {
+                        // 找到unr变量
+                        Number stOriginC = stTemp->left[k]->coefficient; // 备份原系数
+                        Term *stFormerX = TermCopy(formerX); // 复制前一项x''
+                        formerC = Fractionize("1"); // 复用formerC变量
+                        formerC = NMul(formerC, stOriginC); // 乘法分配律
+                        stFormerX->coefficient = formerC;
+                        Term *stLatterX = TermCopy(latterX); // 复制后一项x'
+                        latterC = Fractionize("-1");
+                        latterC = NMul(latterC, stOriginC); // 乘法分配律
+                        stLatterX->coefficient = latterC;
+                        // 原来的这一项的内存已经没用了，free掉
+                        free(stTemp->left[k]);
+                        stTemp->left[k] = stFormerX; // 替换为x''
+                        // 将x'项推入约束
+                        PushTerm(&stTemp->left, stLatterX, k + 1, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+                        // 遍历位后移（加入了两个元素，其中替换了一个元素，增加了一个元素，实际增加一位）
+                        k++;
+                    }
+                }
+            }
+            targetVar[0] = '\0'; // 目标字符串置空
+        }
+    }
+
     ST *stTemp; // 约束暂存temp
-    Term *termBuffer = NULL;
     for (i = 0; i < model->stLen; i++) {
         stTemp = model->subjectTo + i;
         if (stTemp->relation != 3) {// 不是等式
@@ -92,8 +151,7 @@ void LPStandardize(LPModel *model) {
     TermsSort(model->objective.right, model->objective.rightLen);
     // 临时将x<=0的项转换为-x>=0
     InvertNegVars(model->objective.right, model->objective.rightLen);
-    // 处理没有限制的变量
-
+    model->valid = valid; // 标准型化处理是否成功
 }
 
 /**
@@ -130,25 +188,6 @@ Term *CreateSlack(int *currentSub, short int *valid) {
 }
 
 /**
- * 替换约束中无约束(unr)变量为x'' - x'的形式
- * @param terms 指向 多项式指针数组 的指针
- * @param termsLen  多项式指针数组长度
- * @param currentSub 指向一个变量的指针，该变量代表当前x变量下标大小
- */
-void RplUnrVars(Term **terms, size_t termsLen, int *currentSub) {
-    unsigned int i;
-    VarItem *varTemp = NULL; // 变量约束暂存
-    for (i = 0; i < termsLen; i++) {
-        varTemp = GetVarItem(terms[i]->variable);
-        if (varTemp->relation == 0) { // 是一个无约束(unr)变量
-            // PushTerm函数需要新增一个pos参数，用于在多项式指定位置插入√
-            // 另外用到RmvTerm方法（原型定义在basicFuncs中）
-            // 记得重写一下PutVarItem，超出底层数组范围时需要重分配√
-        }
-    }
-}
-
-/**
  * 将多项式中所有项的系数取相反数
  * @param terms 指向 多项式指针数组 的指针
  * @param termsLen  多项式指针数组长度
@@ -169,9 +208,11 @@ void InvertNegVars(Term **terms, size_t termsLen) {
     for (i = 0; i < termsLen; i++) {
         // 从哈希表中取出变量自身的约束
         VarItem *get = GetVarItem(terms[i]->variable);
-        if (get->relation < 0 && get->number == 0)
+        if (get->relation < 0 && get->number == 0) {
             // 取相反数，比如x1<=0，这里相当于令x1=-x1'，那么x1'=-x1，就有 x1' >= 0
             terms[i]->coefficient = NInv(terms[i]->coefficient);
+            terms[i]->inverted = 1; // 标记用x'代替了-x
+        }
     }
 }
 

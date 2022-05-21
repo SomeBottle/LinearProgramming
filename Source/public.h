@@ -54,6 +54,7 @@ struct inc_constant { // 常量结构体
 typedef struct { // 方程中的一项，包括系数，变量名
     Number coefficient; // 系数
     char variable[8]; // 变量名
+    short int inverted; // 是否取了相反数（用于x<=0的情况，需要用x'=-x代替）
 } Term;
 
 typedef struct { // 目标线性函数

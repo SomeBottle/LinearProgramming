@@ -123,8 +123,7 @@ void LPTrans(LPModel *model) {
     }
     // 最后检查目标函数中的决策变量是否都正好存在于约束中，不能多也不能少
     size_t tableVarNum = 0;
-    int maxSub = 0;
-    free(GetVarItems(&tableVarNum, &maxSub, &model->valid)); // 获得哈希表中变量的数量
+    free(GetVarItems(&tableVarNum, NULL, &model->valid)); // 获得哈希表中变量的数量
     // 因为在合并约束的同类项时会将变量写入哈希表，
     // 如果 哈希表存放的变量数量 和 合并后的目标函数右边变量的数量 不匹配就肯定少写了或多写了约束
     if (tableVarNum != model->objective.rightLen) {
@@ -235,11 +234,10 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
  * @param valid 指向一个变量的指针，这个变量存放 1/0 以代表 是/否 推入成功
  */
 void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, short int *valid) {
-    if (pos == -1) { // pos=-1则将新元素加在数组尾部
+    if (pos == -1 || pos >= (*ptr)) { // pos=-1 或者 pos超出当前数组尾部下标，则将新元素加在数组尾部
         (*terms)[(*ptr)++] = toPut;
     } else {
         int i = 0;
-        Term *temp = NULL; // 单项的副本
         for (i = (*ptr)++; i > pos; i--) // 从pos开始的项统统后移
             (*terms)[i] = (*terms)[i - 1];
         (*terms)[pos] = toPut;

@@ -42,7 +42,8 @@ VarItem **GetVarItems(size_t *len, int *maxSub, short int *valid) {
     int currentSub;
     VarItem **allItems = (VarItem **) calloc(maxLen, sizeof(VarItem *));
     VarItem *currentNode;
-    *maxSub = 0; // 最小的x下标
+    if (maxSub != NULL)
+        *maxSub = 0; // 最小的x下标
     *valid = *valid && 1;
     for (i = 0; i < varDict.tableSize; i++) {
         currentNode = varDict.table[i];
@@ -51,7 +52,7 @@ VarItem **GetVarItems(size_t *len, int *maxSub, short int *valid) {
             while (currentNode != NULL) {
                 currentSub = atoi(currentNode->keyName + 1);
                 allItems[ptr++] = currentNode; // 存入结果列表
-                if (currentNode->keyName[0] == 'x' && currentSub > *maxSub)
+                if (maxSub != NULL && currentNode->keyName[0] == 'x' && currentSub > *maxSub)
                     *maxSub = currentSub; // 找到x的最大下标，用于添加松弛变量
 
                 if (ptr >= maxLen) { // 结果数组长度不够了，重新分配一下
@@ -68,7 +69,8 @@ VarItem **GetVarItems(size_t *len, int *maxSub, short int *valid) {
             }
         }
     }
-    *len = ptr;
+    if (len != NULL)
+        *len = ptr;
     return allItems; // 记得free
 }
 

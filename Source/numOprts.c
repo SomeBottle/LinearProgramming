@@ -55,6 +55,9 @@ SubNum FractionMul(long prevNume, long prevDeno, long nextNume, long nextDeno) {
             printf("WARNING: MULTIPLY Operation overflowed between %ld/%ld and %ld/%ld.\n", prevNume, prevDeno,
                    nextNume,
                    nextDeno);
+        } else {
+            result.numerator = numeMult;
+            result.denominator = denoMult;
         }
     } else { // 分母为0是不进行运算的，通常在运算subNum的时候会出现这种情况
         result.valid = 0;
