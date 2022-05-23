@@ -4,7 +4,9 @@
  */
 #include <stdio.h>
 
+#ifndef HASH_TABLE_H
 
+#define HASH_TABLE_H
 #define VAR_HASH_TABLE_LEN 210 /** 变量哈希数组长度*/
 
 /**
@@ -47,3 +49,5 @@ extern VarItem **GetVarItems(size_t *len, long int *maxSub, short int *valid);
 extern void DelVarDict(VarTable *target);
 
 extern void RevokeCurrDict();
+
+#endif
