@@ -84,6 +84,7 @@ typedef struct { // 线性规划数学模型，包括线性函数数组和约束
     OF objective; // 目标函数
     ST *subjectTo; // 约束
     size_t stLen; // 约束数量
+    size_t maxStLen; // 最多能容纳多少约束
     short int valid; // 是否有效
 } LPModel;
 
@@ -101,7 +102,9 @@ extern int constantsNum;
 extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 extern void LPTrans(LPModel *model);
 
-extern void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, short int *valid);
+extern void PushTerm(Term ***terms, Term *toPut, size_t pos, size_t *ptr, size_t *maxLen, short int *valid);
+
+extern void PushST(ST **subjectTo, size_t *ptr, size_t *maxLen, ST target, short int *valid);
 
 // Basic Funcs below:
 
@@ -117,6 +120,12 @@ extern char *Int2Str(int num);
 
 extern int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF);
 
+extern LPModel CopyModel(LPModel *model);
+
+extern Term *TermCopy(Term *origin);
+
+extern Term **TermsCopy(Term **origin, size_t maxLen, size_t *copyLen);
+
 extern void FreeModel(LPModel *model);
 
 extern Constant *InConstants(char chr);
@@ -125,7 +134,7 @@ extern int IsConstTerm(char *str);
 
 extern short int ValidVar(char *str);
 
-extern size_t RmvTerm(Term **terms, size_t len, int pos, int clean);
+extern size_t RmvTerm(Term **terms, size_t len, size_t pos, short int clean);
 
 extern void PrintModel(LPModel model);
 
@@ -158,5 +167,3 @@ extern Number NInv(Number num);
 extern void LPStandardize(LPModel *model);
 
 extern void TermsSort(Term **terms, size_t termsLen);
-
-extern Term *TermCopy(Term *origin);

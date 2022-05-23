@@ -16,7 +16,7 @@ static ST FormulaParser(char *str, short int *valid);
 
 static ST FormulaSimplify(ST formula, short int *valid);
 
-static int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str);
+static short int WriteIn(OF *linearFunc, ST **subjectTo, size_t *stPtr, size_t *stSize, char *str);
 
 /**
  * 判断是否停止读入当前buffer字符串
@@ -43,7 +43,7 @@ int InterruptBuffer(char x) { // 什么时候截断字符串暂存
  * @param model 指向LP模型的指针
  */
 void LPTrans(LPModel *model) {
-    int i, j;
+    size_t i, j;
     ST *stTemp = NULL;
     Term *termTemp = NULL;
 
@@ -106,7 +106,7 @@ void LPTrans(LPModel *model) {
                 Decimalize(stTemp->left[0]->coefficient) == 1 && // 左边系数必须是1
                 Decimalize(stTemp->right[0]->coefficient) == 0 && // 右边为0
                 (abs(stTemp->relation) == 2)) { // 关系必须是 >= 或 <=
-                int ptr;
+                size_t ptr;
                 VarItem *newItem = CreateVarItem(stTemp->left[0]->variable, stTemp->relation, 0);
                 PutVarItem(newItem); // 将变量取值存入哈希表
                 for (ptr = i; ptr < model->stLen - 1; ptr++) { // 移除指定的约束
@@ -143,11 +143,13 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             .left=NULL,
             .right=NULL,
             .leftLen=0,
-            .rightLen=0
+            .rightLen=0,
+            .maxLeftLen=TERMS_LEN_PER_ALLOC,
+            .maxRightLen=TERMS_LEN_PER_ALLOC
     }; // 初始化目标函数结构体
     ST *subjectTo = (ST *) calloc(ST_LEN_PER_ALLOC, sizeof(ST)); // 初始化约束结构体数组
-    int stPtr = 0; // 约束数组指针
-    int stSize = ST_LEN_PER_ALLOC; // 约束数组总长度
+    size_t stPtr = 0; // 约束数组指针
+    size_t stSize = ST_LEN_PER_ALLOC; // 约束数组总长度
     short int valid = 1; // 模型是否有效
     char currentChar;
     int bufferPointer = 0; // 字符串暂存区指针
@@ -219,13 +221,14 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
             .subjectTo=subjectTo,
             .objective=linearFunc,
             .stLen=stPtr,
+            .maxStLen=stSize,
             .valid=valid
     };
     return result;
 }
 
 /**
- * 将新的项推入多项式数组尾部
+ * 将新的项推入多项式数组尾部（或指定位置）
  * @param terms 指向 指向多项式指针数组的指针 的指针
  * @param toPut 指向待推入的项目的指针
  * @param pos 推入的位置，-1则推到数组末尾
@@ -233,16 +236,15 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
  * @param maxLen 当前多项式指针数组能容纳的最多元素数量
  * @param valid 指向一个变量的指针，这个变量存放 1/0 以代表 是/否 推入成功
  */
-void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, short int *valid) {
+void PushTerm(Term ***terms, Term *toPut, size_t pos, size_t *ptr, size_t *maxLen, short int *valid) {
     if (pos == -1 || pos >= (*ptr)) { // pos=-1 或者 pos超出当前数组尾部下标，则将新元素加在数组尾部
         (*terms)[(*ptr)++] = toPut;
     } else {
-        int i = 0;
+        size_t i = 0;
         for (i = (*ptr)++; i > pos; i--) // 从pos开始的项统统后移
             (*terms)[i] = (*terms)[i - 1];
         (*terms)[pos] = toPut;
     }
-    *valid = *valid && 1;
     if (*ptr >= *maxLen) { // 多项式指针数组存放不下了，需要扩充
         (*maxLen) += TERMS_LEN_PER_ALLOC;
         // 重分配内存
@@ -258,6 +260,31 @@ void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, 
 }
 
 /**
+ * 将新的约束加入约束数组尾部
+ * @param subjectTo 指向指向约束数组起址的指针变量的指针
+ * @param ptr 指向约束数组末尾的指针（即数组长度）
+ * @param maxLen 指向一个变量的指针，这个变量代表这个约束数组能存放多少元素
+ * @param target 待放入约束（ST结构体）
+ * @param valid 指向一个变量的指针，这个变量储存 1/0 代表 是/否 加入成功
+ * @note valid参数可以传入NULL
+ */
+void PushST(ST **subjectTo, size_t *ptr, size_t *maxLen, ST target, short int *valid) {
+    (*subjectTo)[(*ptr)++] = target;
+    if (*ptr >= *maxLen) { // 数组装不下了，需要重分配
+        (*maxLen) += ST_LEN_PER_ALLOC; // 扩充内存大小
+        *subjectTo = (ST *) realloc(*subjectTo, (*maxLen) * sizeof(ST));
+        if (*subjectTo != NULL) { // 内存分配成功
+            // 将新分配的内存清零
+            memset(*subjectTo + *ptr, 0, ST_LEN_PER_ALLOC * sizeof(ST));
+        } else {
+            if (valid != NULL)
+                *valid = 0;
+            printf("Memory reallocation failed when pushing Constraint.\n");
+        }
+    }
+}
+
+/**
  * 将方程字符串解析为一个约束方程结构体(ST)
  * @param str 待处理字符串
  * @param valid 指向一个变量，用于储存 1/0 代表当前字符串 是/否 解析成功
@@ -265,7 +292,8 @@ void PushTerm(Term ***terms, Term *toPut, int pos, size_t *ptr, size_t *maxLen, 
  * @note 通常这个和WriteIn函数结合使用，单独使用时请记得free
  */
 ST FormulaParser(char *str, short int *valid) {
-    int i, len = strlen(str);
+    size_t i;
+    size_t len = strlen(str);
     char currentChar, nextChar;
     int writeSide = 0; // 在写入哪边，0 代表关系符号左边，1 代表右边
     int cfcRead = 0; // 读取过系数的标记
@@ -365,12 +393,12 @@ ST FormulaSimplify(ST formula, short int *valid) {
         printf("Simplification Failed: Formula invalid.\n");
         *valid = 0; // 该方程无效
     } else {
-        int i;
+        size_t i;
         // 临时把左右两边连接起来，便于遍历
         Term **joined = (Term **) MemJoin(formula.left, formula.leftLen, formula.right, formula.rightLen,
                                           sizeof(Term *));
         // 连接后的数组长度
-        unsigned int joinedLen = formula.leftLen + formula.rightLen;
+        size_t joinedLen = formula.leftLen + formula.rightLen;
         long int numeCommonDiv = joined[0]->coefficient.numerator; // 所有分子的最大公约数
         long int denoCommonDiv = joined[0]->coefficient.denominator; // 所有分母的最大公约数
         for (i = 1; i < joinedLen; i++) {
@@ -406,7 +434,7 @@ ST FormulaSimplify(ST formula, short int *valid) {
  * @return 1/0 代表 是/否 写入成功
  * @note 本函数根据readFlag决定是写入模型的目标函数还是约束方程，1代表写入目标函数，2代表写入约束方程
  */
-int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) {
+short int WriteIn(OF *linearFunc, ST **subjectTo, size_t *stPtr, size_t *stSize, char *str) {
     short int status = 1; // 返回码
     SplitResult colonSp; // 初始化分割字符串
     ST formulaResult;
@@ -449,17 +477,7 @@ int WriteIn(OF *linearFunc, ST **subjectTo, int *stPtr, int *stSize, char *str) 
             break;
         case 2: // 写入ST
             formulaResult = FormulaParser(str, &status); // 解析约束
-            (*subjectTo)[(*stPtr)++] = formulaResult;
-            if (*stPtr >= *stSize) { // 约束结构体数组放不下了，需要重分配
-                (*stSize) += ST_LEN_PER_ALLOC; // 扩充内存大小
-                *subjectTo = (ST *) realloc(*subjectTo, (*stSize) * sizeof(ST));
-                if (*subjectTo != NULL) {
-                    memset(*subjectTo + *stPtr, 0, ST_LEN_PER_ALLOC * sizeof(ST));
-                } else { // 内存分配失败
-                    status = 0;
-                    printf("Memory re-allocation failed when parsing constraints.\n");
-                }
-            }
+            PushST(subjectTo, stPtr, stSize, formulaResult, &status);
             break;
         default:
             break;

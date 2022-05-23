@@ -2,7 +2,7 @@
 
 
 int main(int args, char *argv[]) {
-    int i;
+    size_t i;
     FILE *fileStream; // 定义文件指针（类型定义来自stdio）
     if (argv[1] != NULL) { // 看看命令行有没有传入文件名
         printf("Input file: %s\n", argv[1]);
@@ -34,7 +34,7 @@ int main(int args, char *argv[]) {
             printf("\n");
             free(constants); // 释放常量数组
             FreeModel(&parsed); // 释放LP模型分配的内存
-            DelVarDict(); // 释放哈希表
+            RevokeCurrDict(); // 释放哈希表
             constants = NULL;
         } else { // 打开文件失败
             printf("File not readable or does not exist.\n");

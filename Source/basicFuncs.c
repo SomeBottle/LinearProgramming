@@ -12,7 +12,7 @@ static void PrintRelation(short int code);
  * @note 使用完结果后一定要记得用freeSplitArr函数进行释放
  */
 SplitResult SplitByChr(char *str, char chr) {
-    int i;
+    size_t i;
     size_t stringLen = strlen(str);
     size_t bufferSize = sizeof(char) * stringLen;
     char *buffer = (char *) malloc(bufferSize); // 字符串暂存区
@@ -20,10 +20,10 @@ SplitResult SplitByChr(char *str, char chr) {
     char **arr = (char **) malloc(sizeof(char *) * stringLen); // 数组第一维
     int arrLen = 0; // 返回二维数组第一维的大小
     for (i = 0; i < stringLen + 1; i++) {
-        unsigned int currentChr;
+        size_t currentChr;
         int lastOne = 0; // 最后一项单独处理
         if (i < stringLen) {
-            currentChr = (unsigned int) str[i];
+            currentChr = (size_t) str[i];
         } else {
             lastOne = 1;
         }
@@ -51,7 +51,7 @@ SplitResult SplitByChr(char *str, char chr) {
  * @param rs 指向SplitByChr返回的结构体的指针
  */
 void freeSplitArr(SplitResult *rs) {
-    int i;
+    size_t i;
     for (i = 0; i < rs->len; i++) {
         free(rs->split[i]);
     }
@@ -87,7 +87,7 @@ void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, size_t eac
 Constant *InConstants(char chr) {
     Constant *ptr = NULL;
     if (constants != NULL) {
-        int i;
+        size_t i;
         for (i = 0; i < constantsNum; i++) {
             if (constants[i].name == chr) {
                 ptr = &constants[i];
@@ -103,7 +103,7 @@ Constant *InConstants(char chr) {
  * @return 1/0 代表 是/否 是常数项
  */
 int IsConstTerm(char *str) {
-    int i;
+    size_t i;
     unsigned long int len = strlen(str);
     for (i = 0; i < len; i++) {
         // 既不是数字，也不包含常量
@@ -163,9 +163,9 @@ long int LCM(long int num1, long int num2) {
  * @return Number结构体
  */
 Number Fractionize(char *str) { // 分数化一个字符串 3M/4 2.45M 5M 3/4M 3M/4M 3/4...
+    size_t i;
     Number result = {.valid=1};
     Constant *cstPtr1 = NULL; // 常量临时指针1
-    int i;
     size_t len = strlen(str);
     size_t partLen = 0; // 字符串部分长度暂存
     // 创建一份字符串拷贝
@@ -336,7 +336,7 @@ char *Int2Str(int num) {
  * @return 返回合并是否成功
  */
 int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
-    int j, k;
+    size_t j, k;
     for (j = 0; j < *termsLen; j++) {
         for (k = j + 1; k < *termsLen; k++) {
             if (strcmp(terms[j]->variable, terms[k]->variable) == 0) { // 找到同类项
@@ -385,7 +385,7 @@ short int ValidVar(char *str) {
  * @return 多项式指针数组的新长度
  * @note 如果clean=0，这里的Remove就只是形式上的，并没有对移除项进行free
  */
-size_t RmvTerm(Term **terms, size_t len, int pos, int clean) {
+size_t RmvTerm(Term **terms, size_t len, size_t pos, short int clean) {
     int ptr1, ptr2 = 0; // 双指针法
     for (ptr1 = 0; ptr1 < len; ptr1++) {
         if (ptr1 != pos) {
@@ -414,7 +414,7 @@ void PrintRelation(short int code) {
  * @return
  */
 void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
-    int i;
+    size_t i;
     long int numeTemp, denoTemp, liesTemp;
     char constName = '\0';
     for (i = 0; i < itemNum; i++) {
@@ -452,7 +452,7 @@ void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
  * @param model LPModel结构体
  */
 void PrintModel(LPModel model) { // 打印LP模型
-    int i;
+    size_t i;
     OF oFunc = model.objective; // 临时拿到目标函数
     ST *subTo = model.subjectTo; // 取到约束数组指针
     printf("Objective Function:\n\t%s:", oFunc.type == 1 ? "max" : "min"); // 目标函数类型
@@ -463,7 +463,9 @@ void PrintModel(LPModel model) { // 打印LP模型
     for (i = 0; i < model.stLen; i++) {
         printf("\t");
         PrintTerms(subTo[i].left, subTo[i].leftLen); // 一项一项打印出来
+        printf(" ");
         PrintRelation(subTo[i].relation); // 打印关系符号
+        printf(" ");
         PrintTerms(subTo[i].right, subTo[i].rightLen);
         printf("\n");
     }
@@ -496,14 +498,86 @@ void PrintModel(LPModel model) { // 打印LP模型
 }
 
 /**
+ * 深拷贝整个LP模型
+ * @param model 指向待拷贝模型的指针
+ * @return 拷贝出来的模型（LPModel结构体）
+ * @note 使用完后记得用FreeModel进行销毁
+ */
+LPModel CopyModel(LPModel *model) {
+    size_t i;
+    OF *oFunc = &model->objective;
+    ST *subTo = model->subjectTo;
+    // 建议使用memcpy以便维护
+    OF oFuncCopy; // 创建一个目标函数副本
+    // 复制目标函数的内存
+    memcpy(&oFuncCopy, oFunc, sizeof(OF));
+    // 复制目标函数左边和右边的多项式
+    oFuncCopy.left = TermsCopy(oFunc->left, oFunc->maxLeftLen, NULL);
+    oFuncCopy.right = TermsCopy(oFunc->right, oFunc->maxRightLen, NULL);
+    ST *subToCopy = (ST *) calloc(model->maxStLen, sizeof(ST));
+    for (i = 0; i < model->stLen; i++) { // 遍历约束
+        // 复制每个约束对应的内存
+        memcpy(&subToCopy[i], &subTo[i], sizeof(ST));
+        // 复制每个约束的左右两边的多项式
+        subToCopy[i].left = TermsCopy(subTo[i].left, subTo[i].maxLeftLen, NULL);
+        subToCopy[i].right = TermsCopy(subTo[i].right, subTo[i].maxRightLen, NULL);
+    }
+    LPModel newModel;
+    // 复制LPModel本体
+    memcpy(&newModel, model, sizeof(LPModel));
+    newModel.objective = oFuncCopy;
+    newModel.subjectTo = subToCopy;
+    return newModel;
+}
+
+/**
+ * 复制多项式的一个项
+ * @param origin 指向一个项(Term)的指针
+ * @return 指向复制出来的项的指针
+ * @note 记得free
+ */
+Term *TermCopy(Term *origin) {
+    Term *new = (Term *) calloc(1, sizeof(Term));
+    memcpy(new, origin, sizeof(Term));
+    return new;
+}
+
+/**
+ * 复制多项式
+ * @param origin 指向原多项式的二级指针（Term**）
+ * @param maxLen 多项式指针数组最多能容纳多少元素
+ * @param copyLen 指向一个变量，这个变量储存复制后的数组长度
+ * @return 指向复制出来的多项式的二级指针(Term**)
+ * @note copyLen参数可以传入NULL
+ */
+Term **TermsCopy(Term **origin, size_t maxLen, size_t *copyLen) {
+    size_t i;
+    Term **new = (Term **) calloc(maxLen, sizeof(Term *));
+    for (i = 0; i < maxLen; i++) {
+        if (origin[i] != NULL) { // 保证不会访问到无效内存
+            new[i] = TermCopy(origin[i]); // 复制每一项
+        } else { // 一旦访问到了NULL就说明数组只有这么多内容了
+            break;
+        }
+    }
+    if (copyLen != NULL)
+        *copyLen = i;
+    return new;
+}
+
+/**
  * 释放LP模型中的堆内存（销毁模型）
  * @param model 指向LPModel模型的指针
  */
 void FreeModel(LPModel *model) {
-    int i, j;
+    size_t i, j;
     // 先处理目标函数
     OF *oFunc = &model->objective; // 地址引用目标函数结构体
     ST *subTo = model->subjectTo;
+    for (i = 0; i < oFunc->leftLen; i++) // 释放所有的项
+        free(oFunc->left[i]);
+    for (i = 0; i < oFunc->rightLen; i++)
+        free(oFunc->right[i]);
     oFunc->leftLen = 0;
     oFunc->rightLen = 0;
     free(oFunc->left); // 释放目标函数中的项集

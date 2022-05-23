@@ -12,17 +12,19 @@ static void TermsInvert(Term **terms, size_t termsLen);
 
 static void InvertNegVars(Term **terms, size_t termsLen);
 
-static Term *CreateSlack(int *currentSub, short int *valid);
+static Term *CreateSlack(long int *currentSub, short int *valid);
 
 /**
  * 将LP模型化为标准型，用于单纯形算法
  * @param model 指向LPModel的一个指针
+ * @note 很惭愧这一部分我写的非常暴力，感觉我化身为了for循环战士
+ * @note 暂时咱也想不到什么好的优化方法了，以后了解了一些算法我再看看能不能改写
  */
 void LPStandardize(LPModel *model) {
     // 感谢文章：https://www.bilibili.com/read/cv5287905
-    unsigned int i, j, k;
+    size_t i, j, k;
     // 当前x的下标
-    int currentSub;
+    long int currentSub;
     short int valid = model->valid;
     // 这一步主要是为了获得当前的x的最大下标
     // 比如最大下标是x67中的67，那么松弛变量就从68开始，也就是x68
@@ -155,26 +157,13 @@ void LPStandardize(LPModel *model) {
 }
 
 /**
- * 复制多项式的一个项
- * @param origin 指向一个项(Term)的指针
- * @return 指向复制出来的项的指针
- * @note 记得free
- */
-Term *TermCopy(Term *origin) {
-    Term *new = (Term *) calloc(1, sizeof(Term));
-    strcpy(new->variable, origin->variable); // 拷贝变量名
-    new->coefficient = origin->coefficient; // 拷贝系数
-    return new;
-}
-
-/**
  * 创建一个松弛/剩余变量
  * @param currentSub 当前x开头变量的下标，比如现在是x6，松弛变量就从x7开始
  * @param valid 指向一个变量的指针，这个变量的值 1/0 代表 是/否 成功创建
  * @return 一个指向创建的松弛变量的项(Term)的指针
  * @note 这个函数会顺带把创建的变量存入哈希表，松弛/剩余变量全都是>=0
  */
-Term *CreateSlack(int *currentSub, short int *valid) {
+Term *CreateSlack(long int *currentSub, short int *valid) {
     char *strTemp = Int2Str(++(*currentSub)); // 临时字符串指针
     Term *termBuff = (Term *) calloc(1, sizeof(Term));
     termBuff->variable[0] = 'x'; // 剩余变量和松弛变量都是x开头
@@ -193,18 +182,18 @@ Term *CreateSlack(int *currentSub, short int *valid) {
  * @param termsLen  多项式指针数组长度
  */
 void TermsInvert(Term **terms, size_t termsLen) {
-    unsigned int i;
+    size_t i;
     for (i = 0; i < termsLen; i++)
         terms[i]->coefficient = NInv(terms[i]->coefficient);
 }
 
 /**
- * 将多项式中的非正变量x暂时转换为-x
+ * 将多项式中的非正变量x暂时转换为-x' (x'=-x)
  * @param terms 指向 多项式指针数组 的指针
  * @param termsLen 多项式指针数组的长度
  */
 void InvertNegVars(Term **terms, size_t termsLen) {
-    unsigned int i;
+    size_t i;
     for (i = 0; i < termsLen; i++) {
         // 从哈希表中取出变量自身的约束
         VarItem *get = GetVarItem(terms[i]->variable);
@@ -223,7 +212,7 @@ void InvertNegVars(Term **terms, size_t termsLen) {
  * @note 采用选择排序算法
  */
 void TermsSort(Term **terms, size_t termsLen) {
-    unsigned int i, j, minIndex;
+    size_t i, j, minIndex;
     for (i = 0; i < termsLen; i++) {
         minIndex = i;
         // 找到后方最小的变量名
@@ -255,8 +244,8 @@ int VarCmp(char *str1, char *str2) {
     if (str1[0] != str2[0]) {
         return str1[0] > str2[0] ? 1 : -1;
     } else {
-        serial1 = strlen(str1) > 1 ? atoi(str1 + 1) : 0;
-        serial2 = strlen(str2) > 1 ? atoi(str2 + 1) : 0;
+        serial1 = strlen(str1) > 1 ? strtol(str1 + 1, NULL, 10) : 0;
+        serial2 = strlen(str2) > 1 ? strtol(str2 + 1, NULL, 10) : 0;
     }
     return serial1 == serial2 ? 0 : serial1 - serial2;
 }
