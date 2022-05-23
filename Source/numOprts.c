@@ -1,6 +1,7 @@
 /* 针对Number结构体进行数字计算的模块
  * SomeBottle
  */
+#include <limits.h>
 #include "public.h"
 
 static SubNum FractionAdd(long prevNume, long prevDeno, long nextNume, long nextDeno);

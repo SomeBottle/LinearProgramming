@@ -4,6 +4,7 @@
  * SomeBottle 20220523
  */
 #include "public.h"
+#include "simplex.h"
 
 /**
  * 路由入口

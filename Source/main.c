@@ -1,5 +1,5 @@
+#include <time.h>
 #include "public.h"
-
 
 int main(int args, char *argv[]) {
     size_t i;
@@ -22,10 +22,8 @@ int main(int args, char *argv[]) {
             if (parsed.valid) { // LP模型有效
                 printf("> LPModel Successfully Parsed in %fs.\n\n", timeCost);
                 PrintModel(parsed);
-                LPStandardize(&parsed);
-                printf("\n--------------------------------\n");
-                printf("> Standard model for Simplex:\n\n");
-                PrintModel(parsed);
+                PAUSE;
+
             }
             // 释放常量constants指针数组的堆内存
             printf("\nFreed CONSTANT(s): ");
@@ -43,6 +41,5 @@ int main(int args, char *argv[]) {
     } else {
         printf("Missing argument. \nUsage: \n\t%s <filename>\n\n", argv[0]);
     }
-    PAUSE;
     return 0;
 }

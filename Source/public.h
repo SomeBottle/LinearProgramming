@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <limits.h>
-#include <time.h>
 
 #ifdef _WIN32 // 根据不同系统编译环境定义清屏和暂停的宏
 #define CLEAR system("cls")
@@ -167,3 +165,7 @@ extern Number NInv(Number num);
 extern void LPStandardize(LPModel *model);
 
 extern void TermsSort(Term **terms, size_t termsLen);
+
+// Router
+
+extern void Entry(LPModel *model);
