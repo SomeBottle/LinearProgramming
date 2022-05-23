@@ -160,12 +160,6 @@ extern Number NInv(Number num);
 
 #include "hashTable.h"
 
-// Simplex Funcs below:
-
-extern void LPStandardize(LPModel *model);
-
-extern void TermsSort(Term **terms, size_t termsLen);
-
 // Router
 
 extern void Entry(LPModel *model);

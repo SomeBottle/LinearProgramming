@@ -6,13 +6,15 @@
 
 #include "public.h"
 
-static int VarCmp(char *str1, char *str2);
-
 static void TermsInvert(Term **terms, size_t termsLen);
 
 static void InvertNegVars(Term **terms, size_t termsLen);
 
 static Term *CreateSlack(long int *currentSub, short int *valid);
+
+static void TermsSort(Term **terms, size_t termsLen);
+
+static int VarCmp(char *str1, char *str2);
 
 /**
  * 将LP模型化为标准型，用于单纯形算法
@@ -177,35 +179,6 @@ Term *CreateSlack(long int *currentSub, short int *valid) {
 }
 
 /**
- * 将多项式中所有项的系数取相反数
- * @param terms 指向 多项式指针数组 的指针
- * @param termsLen  多项式指针数组长度
- */
-void TermsInvert(Term **terms, size_t termsLen) {
-    size_t i;
-    for (i = 0; i < termsLen; i++)
-        terms[i]->coefficient = NInv(terms[i]->coefficient);
-}
-
-/**
- * 将多项式中的非正变量x暂时转换为-x' (x'=-x)
- * @param terms 指向 多项式指针数组 的指针
- * @param termsLen 多项式指针数组的长度
- */
-void InvertNegVars(Term **terms, size_t termsLen) {
-    size_t i;
-    for (i = 0; i < termsLen; i++) {
-        // 从哈希表中取出变量自身的约束
-        VarItem *get = GetVarItem(terms[i]->variable);
-        if (get->relation < 0 && get->number == 0) {
-            // 取相反数，比如x1<=0，这里相当于令x1=-x1'，那么x1'=-x1，就有 x1' >= 0
-            terms[i]->coefficient = NInv(terms[i]->coefficient);
-            terms[i]->inverted = 1; // 标记用x'代替了-x
-        }
-    }
-}
-
-/**
  * 根据变量名对多项式进行排序
  * @param terms 指向 多项式指针数组 的指针
  * @param termsLen 多项式指针数组的长度
@@ -249,3 +222,34 @@ int VarCmp(char *str1, char *str2) {
     }
     return serial1 == serial2 ? 0 : serial1 - serial2;
 }
+
+/**
+ * 将多项式中所有项的系数取相反数
+ * @param terms 指向 多项式指针数组 的指针
+ * @param termsLen  多项式指针数组长度
+ */
+void TermsInvert(Term **terms, size_t termsLen) {
+    size_t i;
+    for (i = 0; i < termsLen; i++)
+        terms[i]->coefficient = NInv(terms[i]->coefficient);
+}
+
+/**
+ * 将多项式中的非正变量x暂时转换为-x' (x'=-x)
+ * @param terms 指向 多项式指针数组 的指针
+ * @param termsLen 多项式指针数组的长度
+ */
+void InvertNegVars(Term **terms, size_t termsLen) {
+    size_t i;
+    for (i = 0; i < termsLen; i++) {
+        // 从哈希表中取出变量自身的约束
+        VarItem *get = GetVarItem(terms[i]->variable);
+        if (get->relation < 0 && get->number == 0) {
+            // 取相反数，比如x1<=0，这里相当于令x1=-x1'，那么x1'=-x1，就有 x1' >= 0
+            terms[i]->coefficient = NInv(terms[i]->coefficient);
+            terms[i]->inverted = 1; // 标记用x'代替了-x
+        }
+    }
+}
+
+

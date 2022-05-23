@@ -23,7 +23,7 @@ int main(int args, char *argv[]) {
                 printf("> LPModel Successfully Parsed in %fs.\n\n", timeCost);
                 PrintModel(parsed);
                 PAUSE;
-
+                Entry(&parsed);
             }
             // 释放常量constants指针数组的堆内存
             printf("\nFreed CONSTANT(s): ");

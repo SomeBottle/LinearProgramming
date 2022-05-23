@@ -11,5 +11,6 @@
  * @param model 指向LP模型的指针
  */
 void Entry(LPModel *model) {
+    printf("\n");
 
 }
