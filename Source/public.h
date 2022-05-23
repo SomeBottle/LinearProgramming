@@ -1,3 +1,6 @@
+#ifndef PUBLIC_H
+#define PUBLIC_H
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -15,14 +18,12 @@
     getchar()
 #endif
 
-#ifndef PUBLIC_H
-
 #define BUFFER_LEN_PER_ALLOC 50 /** 每次分配给字符串暂存区的元素个数*/
 #define CONSTANTS_LEN_PER_ALLOC 10 /** 每次分配给常数项暂存区的元素个数*/
 #define RESET_BUFFER (char *) calloc(BUFFER_LEN_PER_ALLOC, sizeof(char)) /** 字符串暂存区，最开始分配50个*/
 #define ST_LEN_PER_ALLOC 5 /** 每次分配给约束SubjectTo的元素个数*/
 #define TERMS_LEN_PER_ALLOC 5 /** 每次分配给方程中多项式的元素个数*/
-#define PUBLIC_H
+
 
 typedef struct { // 方程中的一项，包括系数，变量名
     Number coefficient; // 系数
@@ -121,7 +122,7 @@ extern void *MemJoin(void *prev, size_t prevLen, void *next, size_t nextLen, siz
 
 #include "hashTable.h"
 
-// Router
+// Router Funcs below:
 
 extern void Entry(LPModel *model);
 
