@@ -13,7 +13,7 @@
 void Entry(LPModel *model) {
     LPModel standardForm = CopyModel(model); // 复制一份模型，这个模型会被化作标准型备用
     VarTable varDictBak = BackupVarDict(); // 备份变量哈希表
-    LPStandardize(&standardForm); // 对复制的模型进行标准化
+    LPStandardize(&standardForm, 1); // 对复制的模型进行标准化
     LPAlign(&standardForm); // 标准化后对约束进行对齐操作，方便化成矩阵
     // 经过标准化和对齐处理后模型valid位变成了0，说明出现了问题
     if (!standardForm.valid) {

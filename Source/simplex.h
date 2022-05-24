@@ -6,7 +6,7 @@
 #ifndef SIMPLEX_H
 #define SIMPLEX_H
 
-extern void LPStandardize(LPModel *model);
+extern void LPStandardize(LPModel *model, short int dual);
 
 extern void LPAlign(LPModel *model);
 

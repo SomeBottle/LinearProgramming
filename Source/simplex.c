@@ -5,6 +5,8 @@
  */
 
 #include "public.h"
+#include "simplex.h"
+#include "matrix.h"
 
 static void TermsInvert(Term **terms, size_t termsLen);
 
@@ -19,10 +21,11 @@ static int VarCmp(char *str1, char *str2);
 /**
  * 将LP模型化为标准型，用于单纯形算法
  * @param model 指向LPModel的一个指针
+ * @param dual 1/0 代表 是/否 以对偶单纯形法的标准转化
  * @note 很惭愧这一部分我写的非常暴力，感觉我化身为了for循环战士
  * @note 暂时咱也想不到什么好的优化方法了，以后了解了一些算法我再看看能不能改写
  */
-void LPStandardize(LPModel *model) {
+void LPStandardize(LPModel *model, short int dual) {
     // 感谢文章：https://www.bilibili.com/read/cv5287905
     size_t i, j, k;
     // 当前x的下标
@@ -107,6 +110,21 @@ void LPStandardize(LPModel *model) {
     ST *stTemp; // 约束暂存temp
     for (i = 0; i < model->stLen; i++) {
         stTemp = model->subjectTo + i;
+
+        // 接着检查当前约束右边是不是正数
+        // 此时termBuffer指向当前约束右边的常数项
+        termBuffer = stTemp->right[0];
+        if ((!dual && Decimalize(termBuffer->coefficient) < 0) || // 针对普通单纯形法,若当前约束右边不是正数，整个方程需要乘个-1
+            (dual && stTemp->relation > 0 && stTemp->relation != 3)) { // 针对对偶单纯形法,为了方便加入松弛变量，所有大于号>=,>必须变成<=,<
+            // 右侧取相反数
+            termBuffer->coefficient = NInv(termBuffer->coefficient);
+            // 约束左侧取反
+            TermsInvert(stTemp->left, stTemp->leftLen);
+            if (stTemp->relation != 3) // 不是等式
+                stTemp->relation = -stTemp->relation; // 不等符号取反，比如 >= 取反成为 <=
+        }
+        termBuffer = NULL;
+
         if (stTemp->relation != 3) {// 不是等式
             // 此时termBuffer指向待加入目标函数的项
             // 构造一个松弛/剩余变量项
@@ -137,16 +155,6 @@ void LPStandardize(LPModel *model) {
             stTemp->relation = 3; // 弱约束变强约束
             PushTerm(&stTemp->left, termBuffer, -1, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
             termBuffer = NULL;
-        }
-        // 接着检查当前约束右边是不是正数
-        // 此时termBuffer指向当前约束右边的常数项
-        termBuffer = stTemp->right[0];
-        if (Decimalize(termBuffer->coefficient) < 0) {
-            // 当前约束右边不是正数，整个方程需要乘个-1
-            // 右侧取相反数
-            termBuffer->coefficient = NInv(termBuffer->coefficient);
-            // 约束左侧取反
-            TermsInvert(stTemp->left, stTemp->leftLen);
         }
         // 对当前约束左边的项目按变量名进行排序
         TermsSort(stTemp->left, stTemp->leftLen);
