@@ -19,6 +19,23 @@ static void TermsSort(Term **terms, size_t termsLen);
 static int VarCmp(char *str1, char *str2);
 
 /**
+ * 单纯形表运算入口
+ * @param model 指向LP模型的指针
+ */
+void newSimplex(LPModel *model) {
+    LPStandardize(model, 0); // 按单纯形法需求化为标准型
+    printf("\n---------------\n> Standard Form\n\n");
+    PrintModel(*model); // 打印一下模型
+    PAUSE;
+    LPAlign(model); // 对模型约束进行对齐操作
+    if (model->valid) {
+
+    } else { // 模型变得invalid了
+        printf("ERROR occurred during the Standardization and the Alignment :( \n");
+    }
+}
+
+/**
  * 将LP模型化为标准型，用于单纯形算法
  * @param model 指向LPModel的一个指针
  * @param dual 1/0 代表 是/否 以对偶单纯形法的标准转化
