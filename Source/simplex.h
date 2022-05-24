@@ -8,4 +8,6 @@
 
 extern void LPStandardize(LPModel *model);
 
+extern void LPAlign(LPModel *model);
+
 #endif

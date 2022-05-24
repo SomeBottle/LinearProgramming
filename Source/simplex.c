@@ -67,7 +67,8 @@ void LPStandardize(LPModel *model) {
             latterC = NMul(latterC, originC); // 仍然是乘法分配律
             latterX->coefficient = latterC; // 存入系数
             // 加入到目标函数中
-            PushTerm(&model->objective.right, latterX, i + 1, &model->objective.rightLen, &model->objective.maxRightLen,
+            PushTerm(&model->objective.right, latterX, (long long int) i + 1, &model->objective.rightLen,
+                     &model->objective.maxRightLen,
                      &valid);
             // 用x''-x'替代了x(unr)，需要把x''和x'记录到对应的表项中
             strcpy(varTemp->formerX, formerX->variable);
@@ -92,7 +93,8 @@ void LPStandardize(LPModel *model) {
                         free(stTemp->left[k]);
                         stTemp->left[k] = stFormerX; // 替换为x''
                         // 将x'项推入约束
-                        PushTerm(&stTemp->left, stLatterX, k + 1, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+                        PushTerm(&stTemp->left, stLatterX, (long long int) k + 1, &stTemp->leftLen, &stTemp->maxLeftLen,
+                                 &valid);
                         // 遍历位后移（加入了两个元素，其中替换了一个元素，增加了一个元素，实际增加一位）
                         k++;
                     }
@@ -156,6 +158,33 @@ void LPStandardize(LPModel *model) {
     // 临时将x<=0的项转换为-x>=0
     InvertNegVars(model->objective.right, model->objective.rightLen);
     model->valid = valid; // 标准型化处理是否成功
+}
+
+/**
+ * 将约束进行对齐
+ * @param model 指向待处理LP模型的指针
+ * @param valid 指向一个变量的指针，这个变量储存 1/0 代表 是/否 对齐成功
+ * @note 前提：model已经经过LPStandardize处理
+ */
+void LPAlign(LPModel *model) {
+    size_t i, j;
+    ST *stTemp;
+    Term **ofTerms = model->objective.right;
+    short int valid = 1;
+    for (i = 0; i < model->stLen; i++) {
+        stTemp = &model->subjectTo[i]; // 当前约束左边的多项式
+        for (j = 0; j < model->objective.rightLen; j++) {
+            if (j >= stTemp->leftLen || strcmp(stTemp->left[j]->variable, ofTerms[j]->variable) != 0) {
+                // 当前位置的约束的变量名和目标函数中对应位置的对不上，说明未对齐
+                Term *new = TermCopy(ofTerms[j]); // 复制目标函数中的这一项
+                new->coefficient = Fractionize("0"); // 当然，插入到约束中时其系数只能是0
+                // 将该项目插入到该约束的指定位置
+                PushTerm(&stTemp->left, new, (long long int) j, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+                // 这里估计要用到双指针，多一个k变量
+            }
+        }
+    }
+    model->valid = model->valid && valid;
 }
 
 /**

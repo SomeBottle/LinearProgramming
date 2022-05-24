@@ -236,7 +236,7 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
  * @param maxLen 当前多项式指针数组能容纳的最多元素数量
  * @param valid 指向一个变量的指针，这个变量存放 1/0 以代表 是/否 推入成功
  */
-void PushTerm(Term ***terms, Term *toPut, size_t pos, size_t *ptr, size_t *maxLen, short int *valid) {
+void PushTerm(Term ***terms, Term *toPut, long long int pos, size_t *ptr, size_t *maxLen, short int *valid) {
     if (pos == -1 || pos >= (*ptr)) { // pos=-1 或者 pos超出当前数组尾部下标，则将新元素加在数组尾部
         (*terms)[(*ptr)++] = toPut;
     } else {
@@ -251,7 +251,7 @@ void PushTerm(Term ***terms, Term *toPut, size_t pos, size_t *ptr, size_t *maxLe
         *terms = (Term **) realloc(*terms, sizeof(Term *) * (*maxLen));
         if (*terms != NULL) {
             // 清空新分配的内存部分
-            memset((*terms) + *ptr, 0, TERMS_LEN_PER_ALLOC);
+            memset((*terms) + *ptr, 0, TERMS_LEN_PER_ALLOC * sizeof(Term *));
         } else { // 内存分配失败
             printf("Memory reallocation failed when pushing a Term.\n");
             *valid = 0;

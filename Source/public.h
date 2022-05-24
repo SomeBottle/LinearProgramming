@@ -76,7 +76,7 @@ extern int constantsNum;
 extern LPModel Parser(FILE *fp); // 外部变量，定义于dataParser
 extern void LPTrans(LPModel *model);
 
-extern void PushTerm(Term ***terms, Term *toPut, size_t pos, size_t *ptr, size_t *maxLen, short int *valid);
+extern void PushTerm(Term ***terms, Term *toPut, long long int pos, size_t *ptr, size_t *maxLen, short int *valid);
 
 extern void PushST(ST **subjectTo, size_t *ptr, size_t *maxLen, ST target, short int *valid);
 

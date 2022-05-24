@@ -106,7 +106,7 @@ VarItem **GetVarItems(size_t *len, long int *maxSub, short int *valid) {
                     maxLen += sizePerAlloc; // 增加元素
                     allItems = (VarItem **) realloc(allItems, sizeof(VarItem *) * maxLen);
                     if (allItems != NULL) {
-                        memset(allItems + ptr, 0, sizePerAlloc); // 清空新分配的内存
+                        memset(allItems + ptr, 0, sizePerAlloc * sizeof(VarItem *)); // 清空新分配的内存
                     } else { // 内存重分配失败
                         if (valid != NULL)
                             *valid = 0;
