@@ -10,4 +10,6 @@ extern void LPStandardize(LPModel *model, short int dual);
 
 extern void LPAlign(LPModel *model);
 
+extern void newSimplex(LPModel *model);
+
 #endif

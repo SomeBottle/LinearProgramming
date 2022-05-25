@@ -448,19 +448,30 @@ void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
 }
 
 /**
- * 在控制台打印LPModel
- * @param model LPModel结构体
+ * 从标准输入获取一个字符
+ * @return 一个字符(char)
+ * @note 这是对getchar的简单完善，保证不会读到多余的内容
  */
-void PrintModel(LPModel model) { // 打印LP模型
+char ReadChar() {
+    char ch = (char) getchar(); // 获取一个字符
+    while (getchar() != '\n'); // 清空缓存区
+    return ch;
+}
+
+/**
+ * 在控制台打印LPModel
+ * @param model 指向LPModel结构体的指针
+ */
+void PrintModel(LPModel *model) { // 打印LP模型
     size_t i;
-    OF oFunc = model.objective; // 临时拿到目标函数
-    ST *subTo = model.subjectTo; // 取到约束数组指针
+    OF oFunc = model->objective; // 临时拿到目标函数
+    ST *subTo = model->subjectTo; // 取到约束数组指针
     printf("Objective Function:\n\t%s:", oFunc.type == 1 ? "max" : "min"); // 目标函数类型
     PrintTerms(oFunc.left, oFunc.leftLen); // 一项一项打印出来
     printf(" = "); // 打印等号
     PrintTerms(oFunc.right, oFunc.rightLen);
     printf("\nSubject to:\n");
-    for (i = 0; i < model.stLen; i++) {
+    for (i = 0; i < model->stLen; i++) {
         printf("\t");
         PrintTerms(subTo[i].left, subTo[i].leftLen); // 一项一项打印出来
         printf(" ");

@@ -22,4 +22,6 @@ typedef struct {
 
 extern SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid);
 
+extern void RevokeSMatrix(SimplexMatrix *matrix);
+
 #endif //LPSIMPLEX_MATRIX_H

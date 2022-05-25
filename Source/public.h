@@ -82,6 +82,8 @@ extern void PushST(ST **subjectTo, size_t *ptr, size_t *maxLen, ST target, short
 
 // Basic Funcs below:
 
+extern char ReadChar();
+
 extern SplitResult SplitByChr(char *str, char chr);
 
 extern void freeSplitArr(SplitResult *rs);
@@ -110,7 +112,7 @@ extern short int ValidVar(char *str);
 
 extern size_t RmvTerm(Term **terms, size_t len, size_t pos, short int clean);
 
-extern void PrintModel(LPModel model);
+extern void PrintModel(LPModel *model);
 
 extern long int GCD(long int num1, long int num2);
 

@@ -21,7 +21,7 @@ int main(int args, char *argv[]) {
             timeCost = ((double) (endTime - startTime)) / CLOCKS_PER_SEC;
             if (parsed.valid) { // LP模型有效
                 printf("> LPModel Successfully Parsed in %fs.\n\n", timeCost);
-                PrintModel(parsed);
+                PrintModel(&parsed);
                 PAUSE;
                 Entry(&parsed);
             }

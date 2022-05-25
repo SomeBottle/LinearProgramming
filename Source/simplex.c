@@ -25,11 +25,32 @@ static int VarCmp(char *str1, char *str2);
 void newSimplex(LPModel *model) {
     LPStandardize(model, 0); // 按单纯形法需求化为标准型
     printf("\n---------------\n> Standard Form\n\n");
-    PrintModel(*model); // 打印一下模型
+    PrintModel(model); // 打印一下模型
     PAUSE;
     LPAlign(model); // 对模型约束进行对齐操作
     if (model->valid) {
-
+        size_t *lackList = NULL;
+        short int valid = 1;
+        // 尝试转换为单纯形表所需矩阵
+        SimplexMatrix matrix = CreateSMatrix(model, lackList, &valid);
+        if (!valid) { // 没有找到单位阵
+            short int chosenMethod = 0;
+            while (1) {
+                CLEAR;
+                // 提示缺少单位阵
+                printf("Artificial variables are needed due to the lack of Identity Matrix.\n");
+                printf("Choose one method to continue:\n");
+                printf("\t1. Big M Method.\n"); // 大M法
+                printf("\t2. Two-phase Method.\n"); // 两阶段法
+                printf("Type in the correspond number:");
+                chosenMethod = (short int) (ReadChar() - '0'); // 将用户输入转换为数值
+                if (chosenMethod >= 1 && chosenMethod <= 2)
+                    break;
+            }
+        }
+        if (lackList != NULL)
+            free(lackList); // 用完释放好习惯
+        RevokeSMatrix(&matrix); // 用完后销毁单纯形表矩阵
     } else { // 模型变得invalid了
         printf("ERROR occurred during the Standardization and the Alignment :( \n");
     }

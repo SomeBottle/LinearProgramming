@@ -12,7 +12,8 @@
  * @param valid 指向一个变量的指针，这个变量储存 1/0 代表 是/否 成功转化为矩阵
  * @return 一个储存着矩阵的结构体(SimplexMatrix)
  * @note 找不到单位阵的时候会设置valid=0,这个时候应该尝试加入人工变量
- * @note 涉及大量分配堆内存操作，记得free!
+ * @note lack如果不是NULL也要记得free
+ * @note 涉及大量分配堆内存操作，记得free! 使用RevokeSMatrix函数
  */
 SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid) {
     size_t i, j, lackPtr;
@@ -79,6 +80,35 @@ SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid) {
         }
     }
     return new;
+}
+
+/**
+ * 与CreateSMatrix对应，销毁单纯形表矩阵
+ * @param matrix 指向单纯形表矩阵的指针（SimplexMatrix）
+ */
+void RevokeSMatrix(SimplexMatrix *matrix) {
+    size_t i, j;
+    for (j = 0; j < matrix->ofLen; j++) { // 遍历列
+        free(matrix->varNames[j]); // 销毁变量行中每一项
+        free(matrix->ofCosts[j]); // 销毁价值系数中每一项
+        for (i = 0; i < matrix->basicLen; i++) // 遍历行
+            free(matrix->cMatrix[i][j]); // 销毁矩阵中每一项
+    }
+    for (i = 0; i < matrix->basicLen; i++)  // 遍历行
+        free(matrix->cMatrix[i]); // 销毁矩阵的每行
+    free(matrix->ofCosts); // 销毁价值系数数组
+    free(matrix->varNames); // 销毁变量名数组
+    free(matrix->cMatrix); // 销毁矩阵
+    // 基变量及其价值系数数组的每项无需释放，因为是直接引用的ofCosts和varNames中的指针
+    free(matrix->basicVars); // 销毁基变量名数组
+    free(matrix->basicCosts); // 销毁基变量价值系数数组
+    matrix->ofCosts = NULL;
+    matrix->varNames = NULL;
+    matrix->cMatrix = NULL;
+    matrix->basicVars = NULL;
+    matrix->basicCosts = NULL;
+    matrix->basicLen = 0;
+    matrix->ofLen = 0;
 }
 
 // 接下来要写销毁SimplexMatrix矩阵的方法，对相应内存进行释放

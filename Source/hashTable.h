@@ -36,7 +36,7 @@ extern void InitVarDict();
 
 extern VarTable BackupVarDict();
 
-extern void RestoreVarDict(VarTable target);
+extern void RestoreVarDict(VarTable* target);
 
 extern VarItem *CreateVarItem(char *varName, short int relation, int num);
 

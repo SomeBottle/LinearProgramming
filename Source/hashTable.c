@@ -8,6 +8,8 @@
 
 static size_t VarHash(char *varName);
 
+static VarTable CopyVarDict(VarTable *target);
+
 /** 变量约束哈希表*/
 static VarTable varDict = {
         .tableSize=VAR_HASH_TABLE_LEN,
@@ -20,19 +22,19 @@ void InitVarDict() {
 }
 
 /**
- * 备份变量哈希表底层数组
+ * 复制哈希表数组
+ * @param target 指向待复制哈希表(VarTable)
  * @return 一个VarTable结构体对象
- * @note 请记得调用DelVarDict销毁备份
  */
-VarTable BackupVarDict() {
+VarTable CopyVarDict(VarTable *target) {
     size_t i;
     // 新分配一个副本
-    VarItem **tableCopy = (VarItem **) calloc(varDict.tableSize, sizeof(VarItem *));
-    for (i = 0; i < varDict.tableSize; i++) {
+    VarItem **tableCopy = (VarItem **) calloc(target->tableSize, sizeof(VarItem *));
+    for (i = 0; i < target->tableSize; i++) {
         VarItem *temp;
         VarItem *newTemp;
         VarItem *prevNewTemp = NULL;
-        temp = varDict.table[i];
+        temp = target->table[i];
         while (temp != NULL) { // 这里存放了链节点，复制整个链表
             // 分配一个新节点
             newTemp = (VarItem *) calloc(1, sizeof(VarItem));
@@ -53,22 +55,35 @@ VarTable BackupVarDict() {
     }
     VarTable copyDict = {
             .table=tableCopy,
-            .tableSize=varDict.tableSize
+            .tableSize=target->tableSize
     };
     return copyDict;
+}
+
+/**
+ * 备份变量哈希表底层数组，本质上是调用static CopyVarDict
+ * @return 一个VarTable结构体对象
+ * @note 使用完后请记得调用DelVarDict销毁备份
+ */
+VarTable BackupVarDict() {
+    return CopyVarDict(&varDict);
 }
 
 /**
  * 还原BackupVarDict备份的哈希表底层数组
  * @param target 待还原的目标（VarTable结构体）
  * @note 这个操作会销毁目前使用的哈希表并进行替换!
- * @note 请记得调用DelVarDict销毁备份
+ * @note 同时会销毁传入的target指针指向的哈希表，并将target指向新哈希表
+ * @note 如有遗漏，记得调用DelVarDict销毁备份
  */
-void RestoreVarDict(VarTable target) {
-    RevokeCurrDict(); // 先把目前使用的表给销毁了
-    // 还原备份（注意，备份未被销毁）
-    varDict.table = target.table;
-    varDict.tableSize = target.tableSize;
+void RestoreVarDict(VarTable *target) {
+    VarTable copiedTable = CopyVarDict(target); // 深拷贝一份，与target指向的哈希表断开关联
+    RevokeCurrDict(); // 销毁当前哈希表的内容
+    DelVarDict(target); // 销毁副本内容
+    // 还原备份
+    varDict.table = copiedTable.table;
+    varDict.tableSize = copiedTable.tableSize;
+    target = &copiedTable; // 将target指向新哈希表
 }
 
 /**
@@ -150,6 +165,9 @@ void DelVarDict(VarTable *target) {
         }
     }
     free(target->table);
+    // 如果当前删去的哈希表地址和varDict的一样，那么varDict的也置NULL
+    if (target->table == varDict.table)
+        varDict.table = NULL;
     target->table = NULL;
     target->tableSize = 0;
 }

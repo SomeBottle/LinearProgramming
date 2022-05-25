@@ -24,10 +24,11 @@ void Entry(LPModel *model) {
         printf("\t...Under development.\n");
         printf("\t(Other inputs). Exit\n"); // 退出
         printf("Type in the number correspond to the option: ");
-        receive = getchar();
+        receive = ReadChar();
         switch (receive) {
             case '1':
                 printf("Simplex Method\n");
+                newSimplex(model);
                 break;
             case '2':
                 printf("Primal Simplex Method\n");
@@ -38,8 +39,8 @@ void Entry(LPModel *model) {
         }
         // 销毁模型副本
         FreeModel(&modelCopy);
-        // 恢复成之前备份的哈希表
-        RestoreVarDict(varDictBak);
+        if (cycle)
+            RestoreVarDict(&varDictBak); // 恢复成之前备份的哈希表
     }
     // 销毁哈希表副本
     DelVarDict(&varDictBak);
