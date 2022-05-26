@@ -11,7 +11,7 @@
  * @param model 指向LP模型的指针
  */
 void Entry(LPModel *model) {
-    VarTable varDictBak = BackupVarDict(); // 备份变量哈希表
+    BackupVarDict(); // 备份变量哈希表
     short int cycle = 1;
     char receive = '\0';
     while (cycle) {
@@ -37,9 +37,7 @@ void Entry(LPModel *model) {
                 break;
         }
         if (cycle)
-            // 恢复成之前备份的哈希表，同时拿到新的拷贝
-            varDictBak = RestoreVarDict(&varDictBak);
+            // 恢复成之前备份的哈希表
+            RestoreVarDict();
     }
-    // 销毁哈希表副本
-    DelVarDict(&varDictBak);
 }

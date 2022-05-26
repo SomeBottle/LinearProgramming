@@ -10,12 +10,17 @@ static size_t VarHash(char *varName);
 
 static VarTable CopyVarDict(VarTable *target);
 
+static void DelVarDict(VarTable *target);
+
 /** 变量约束哈希表*/
 static VarTable varDict = {
         .tableSize=VAR_HASH_TABLE_LEN,
         .table=NULL,
         .maxSubOfX=0
 };
+
+/** 哈希表备份*/
+static VarTable varDictCopy = {.table=NULL};
 
 /** 初始化变量约束哈希表 */
 void InitVarDict() {
@@ -73,28 +78,22 @@ VarTable CopyVarDict(VarTable *target) {
 
 /**
  * 备份变量哈希表底层数组，本质上是调用static CopyVarDict
- * @return 一个VarTable结构体对象
- * @note 使用完后请记得调用DelVarDict销毁备份
+ * @note 设计有点借鉴JavaScript里的CanvasRenderingContext2D.save()
  */
-VarTable BackupVarDict() {
-    return CopyVarDict(&varDict);
+void BackupVarDict() {
+    if (varDictCopy.table != NULL) // 多次调用此函数时要释放掉上回的哈希表
+        DelVarDict(&varDictCopy);
+    varDictCopy = CopyVarDict(&varDict);
 }
 
 /**
  * 还原BackupVarDict备份的哈希表底层数组
- * @param target 待还原的目标（VarTable结构体）
- * @return 新拷贝的哈希表(VarTable)
- * @note 这个操作会销毁目前使用的哈希表并进行替换!
- * @note 同时会销毁传入的target指针指向的哈希表，返回一个复制的新哈希表
- * @note 如有遗漏，记得调用DelVarDict销毁备份
+ * @note 设计有点借鉴JavaScript里的CanvasRenderingContext2D.restore()
  */
-VarTable RestoreVarDict(VarTable *target) {
-    VarTable copiedTable = CopyVarDict(target); // 深拷贝一份，与target指向的哈希表断开关联
-    RevokeCurrDict(); // 销毁当前哈希表的内容
-    DelVarDict(target); // 销毁副本内容
+void RestoreVarDict() {
+    DelVarDict(&varDict); // 销毁当前哈希表的内容
     // 还原备份
-    varDict = copiedTable;
-    return copiedTable;
+    varDict = CopyVarDict(&varDictCopy); // 深拷贝一份，与varDictCopy哈希表断开关联
 }
 
 /**
@@ -140,10 +139,11 @@ VarItem **GetVarItems(size_t *len, short int *valid) {
 
 /**
  * 销毁当前的变量哈希表
- * @note 本质还是调用DelVarDict，不过操作对象是静态对象varDict
+ * @note 本质还是调用DelVarDict，不过操作对象是静态对象varDict和varDictCopy
  */
 void RevokeCurrDict() {
-    DelVarDict(&varDict);
+    DelVarDict(&varDict); // 销毁刚用完的哈希表
+    DelVarDict(&varDictCopy); // 销毁哈希表备份
 }
 
 /** 销毁变量哈希表
@@ -166,9 +166,6 @@ void DelVarDict(VarTable *target) {
         }
     }
     free(target->table);
-    // 如果当前删去的哈希表地址和varDict的一样，那么varDict的也置NULL
-    if (target->table == varDict.table)
-        varDict.table = NULL;
     target->table = NULL;
     target->tableSize = 0;
     target->maxSubOfX = 0;

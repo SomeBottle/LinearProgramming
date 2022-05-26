@@ -37,9 +37,9 @@ extern void InitVarDict();
 
 extern size_t GetCurrentXSub();
 
-extern VarTable BackupVarDict();
+extern void BackupVarDict();
 
-extern VarTable RestoreVarDict(VarTable *target);
+extern void RestoreVarDict();
 
 extern VarItem *CreateVarItem(char *varName, short int relation, int num);
 
@@ -48,8 +48,6 @@ extern short int PutVarItem(VarItem *item);
 extern VarItem *GetVarItem(char *key);
 
 extern VarItem **GetVarItems(size_t *len, short int *valid);
-
-extern void DelVarDict(VarTable *target);
 
 extern void RevokeCurrDict();
 
