@@ -124,9 +124,14 @@ void LPTrans(LPModel *model) {
     // 最后检查目标函数中的决策变量是否都正好存在于约束中，不能多也不能少
     size_t tableVarNum = 0;
     free(GetVarItems(&tableVarNum, NULL, &model->valid)); // 获得哈希表中变量的数量
+    size_t ofVarNum = 0; // 目标函数中的变量数目
+    for (i = 0; i < model->objective.rightLen; i++) {
+        if (strlen(model->objective.right[i]->variable) > 0) // 计算目标函数中的变量数目
+            ofVarNum++;
+    }
     // 因为在合并约束的同类项时会将变量写入哈希表，
     // 如果 哈希表存放的变量数量 和 合并后的目标函数右边变量的数量 不匹配就肯定少写了或多写了约束
-    if (tableVarNum != model->objective.rightLen) {
+    if (tableVarNum != ofVarNum) {
         printf("ERROR: Mismatch in the number of variables in the Objective Function and Constraints.\n");
         model->valid = 0;
     }

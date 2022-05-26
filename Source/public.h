@@ -11,11 +11,14 @@
 
 #ifdef _WIN32 // 根据不同系统编译环境定义清屏和暂停的宏
 #define CLEAR system("cls")
-#define PAUSE system("pause")
+// 暂停的时候顺便fflush清空输出缓冲区
+#define PAUSE fflush(stdout);\
+    system("pause")
 #else
 #define CLEAR system("clear")
 #define PAUSE printf("Press Enter to continue.\n");\
-    getchar()
+    fflush(stdout);\
+getchar()
 #endif
 
 #define BUFFER_LEN_PER_ALLOC 50 /** 每次分配给字符串暂存区的元素个数*/

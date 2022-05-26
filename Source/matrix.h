@@ -20,7 +20,7 @@ typedef struct {
     Number **basicCosts; // 基变量对应的价值系数
 } SimplexMatrix;
 
-extern SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid);
+extern SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid);
 
 extern void RevokeSMatrix(SimplexMatrix *matrix);
 

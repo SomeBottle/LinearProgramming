@@ -18,21 +18,26 @@ static void TermsSort(Term **terms, size_t termsLen);
 
 static int VarCmp(char *str1, char *str2);
 
+static void AddBigM(LPModel *model);
+
 /**
  * 单纯形表运算入口
  * @param model 指向LP模型的指针
  */
 void newSimplex(LPModel *model) {
-    LPStandardize(model, 0); // 按单纯形法需求化为标准型
+    LPModel modelCopy = CopyModel(model); // 复制一份模型，防止影响到原模型，这个模型会被化作标准型
+    LPStandardize(&modelCopy, 0); // 按单纯形法需求化为标准型
     printf("\n---------------\n> Standard Form\n\n");
-    PrintModel(model); // 打印一下模型
+    PrintModel(&modelCopy); // 打印一下模型
     PAUSE;
-    LPAlign(model); // 对模型约束进行对齐操作
-    if (model->valid) {
+    LPAlign(&modelCopy); // 对模型约束进行对齐操作
+    PrintModel(&modelCopy); // 打印一下模型
+    PAUSE;
+    if (modelCopy.valid) {
         size_t *lackList = NULL;
         short int valid = 1;
         // 尝试转换为单纯形表所需矩阵
-        SimplexMatrix matrix = CreateSMatrix(model, lackList, &valid);
+        SimplexMatrix matrix = CreateSMatrix(&modelCopy, &lackList, &valid);
         if (!valid) { // 没有找到单位阵
             short int chosenMethod = 0;
             while (1) {
@@ -43,8 +48,17 @@ void newSimplex(LPModel *model) {
                 printf("\t1. Big M Method.\n"); // 大M法
                 printf("\t2. Two-phase Method.\n"); // 两阶段法
                 printf("Type in the correspond number:");
+                fflush(stdout); // 清空输出缓冲区
                 chosenMethod = (short int) (ReadChar() - '0'); // 将用户输入转换为数值
                 if (chosenMethod >= 1 && chosenMethod <= 2)
+                    break;
+            }
+            RevokeSMatrix(&matrix); // 先销毁之前的矩阵
+            switch (chosenMethod) {
+                case 1: // 大M法
+
+                    break;
+                case 2: // 两阶段法
                     break;
             }
         }
@@ -54,6 +68,17 @@ void newSimplex(LPModel *model) {
     } else { // 模型变得invalid了
         printf("ERROR occurred during the Standardization and the Alignment :( \n");
     }
+    // 销毁模型副本
+    FreeModel(&modelCopy);
+}
+
+/**
+ * 往模型中加入大M
+ * @param model 指向LP模型的指针
+ */
+void AddBigM(LPModel *model) {
+    // 获得目前的最后一项变量的变量
+    
 }
 
 /**
@@ -90,7 +115,7 @@ void LPStandardize(LPModel *model, short int dual) {
         char targetVar[8]; // 暂存变量名
         termBuffer = model->objective.right[i];
         varTemp = GetVarItem(termBuffer->variable); // 获得变量约束项
-        if (!varTemp->relation) { // 这一项x没有约束(unr)
+        if (varTemp != NULL && !varTemp->relation) { // 这一项x没有约束(unr)
             strcpy(targetVar, termBuffer->variable); // 复制变量名，方便后面在约束中寻找
             Number originC = termBuffer->coefficient; // 备份unr项的系数
             // 创建前一个变量x''>=0
@@ -213,20 +238,24 @@ void LPStandardize(LPModel *model, short int dual) {
  * @note 前提：model已经经过LPStandardize处理
  */
 void LPAlign(LPModel *model) {
-    size_t i, j;
+    size_t i, j, k;
     ST *stTemp;
     Term **ofTerms = model->objective.right;
     short int valid = 1;
     for (i = 0; i < model->stLen; i++) {
         stTemp = &model->subjectTo[i]; // 当前约束左边的多项式
+        k = 0;
         for (j = 0; j < model->objective.rightLen; j++) {
-            if (j >= stTemp->leftLen || strcmp(stTemp->left[j]->variable, ofTerms[j]->variable) != 0) {
-                // 当前位置的约束的变量名和目标函数中对应位置的对不上，说明未对齐
-                Term *new = TermCopy(ofTerms[j]); // 复制目标函数中的这一项
-                new->coefficient = Fractionize("0"); // 当然，插入到约束中时其系数只能是0
-                // 将该项目插入到该约束的指定位置
-                PushTerm(&stTemp->left, new, (long long int) j, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
-                // 这里估计要用到双指针，多一个k变量
+            if (strlen(ofTerms[j]->variable) > 0) { // 跳过目标函数中不含变量的项
+                if (k >= stTemp->leftLen || strcmp(stTemp->left[k]->variable, ofTerms[j]->variable) != 0) {
+                    // 当前位置的约束的变量名和目标函数中对应位置的对不上，说明未对齐
+                    Term *new = TermCopy(ofTerms[j]); // 复制目标函数中的这一项
+                    new->coefficient = Fractionize("0"); // 当然，插入到约束中时其系数只能是0
+                    // 将该项目插入到该约束的指定位置
+                    PushTerm(&stTemp->left, new, (long long int) k, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
+                    // 这里估计要用到双指针，多一个k变量
+                }
+                k++;
             }
         }
     }
@@ -319,7 +348,7 @@ void InvertNegVars(Term **terms, size_t termsLen) {
     for (i = 0; i < termsLen; i++) {
         // 从哈希表中取出变量自身的约束
         VarItem *get = GetVarItem(terms[i]->variable);
-        if (get->relation < 0 && get->number == 0) {
+        if (get != NULL && get->relation < 0 && get->number == 0) {
             // 取相反数，比如x1<=0，这里相当于令x1=-x1'，那么x1'=-x1，就有 x1' >= 0
             terms[i]->coefficient = NInv(terms[i]->coefficient);
             terms[i]->inverted = 1; // 标记用x'代替了-x

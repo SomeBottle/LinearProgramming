@@ -14,10 +14,17 @@
  * @note 找不到单位阵的时候会设置valid=0,这个时候应该尝试加入人工变量
  * @note lack如果不是NULL也要记得free
  * @note 涉及大量分配堆内存操作，记得free! 使用RevokeSMatrix函数
+ * @note 这个函数会剔除掉目标函数中的常数项，因为常数项不影响结果解
  */
-SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid) {
-    size_t i, j, lackPtr;
+SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid) {
+    size_t i, j, k, lackPtr;
     SimplexMatrix new = {};
+    size_t objectiveLen = model->objective.rightLen; // 临时储存目标函数右边项数
+    for (i = 0; i < objectiveLen; i++) { // 在转化为矩阵时剔除掉目标函数中的常数项，常数项是不重要的
+        if (strlen(model->objective.right[i]->variable) <= 0) {
+            model->objective.rightLen = RmvTerm(model->objective.right, objectiveLen, i, 1);
+        }
+    }
     Term **ofTerms = model->objective.right;
     new.ofLen = model->objective.rightLen; // 获得矩阵的列数
     new.basicLen = model->stLen; // 获得矩阵的行数（基变量的个数）
@@ -69,13 +76,13 @@ SimplexMatrix CreateSMatrix(LPModel *model, size_t *lack, short int *valid) {
             new.basicCosts[basicPos] = new.ofCosts[j];
         }
     }
-    lack = NULL;
+    *lack = NULL;
     lackPtr = 0;
     for (i = 0; i < new.basicLen; i++) {
         if (new.basicVars[i] == NULL) { // 基未被填满，说明没找到单位阵
-            if (lack == NULL)
-                lack = (size_t *) calloc(new.basicLen, sizeof(size_t));
-            lack[lackPtr++] = i; // 存入需要加入人工变量的行号
+            if (*lack == NULL)
+                *lack = (size_t *) calloc(new.basicLen, sizeof(size_t));
+            *lack[lackPtr++] = i; // 存入需要加入人工变量的行号
             *valid = 0; // 操作失败
         }
     }

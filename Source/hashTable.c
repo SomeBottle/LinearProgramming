@@ -179,12 +179,15 @@ void DelVarDict(VarTable *target) {
  */
 size_t VarHash(char *varName) {
     size_t i, temp;
-    if (!ValidVar(varName)) {
+    size_t len = strlen(varName); // 字符串长度
+    if (len <= 0) { // 常数项一般会触发这里
+        return 0;
+    }
+    if (!ValidVar(varName)) { // 不是合法的变量名
         printf("Var hashing failed: invalid variable name.\n");
         return 0;
     }
     size_t result = 0;
-    size_t len = strlen(varName); // 字符串长度
     for (i = 0; i < len; i++) {
         temp = (int) varName[i]; // 折叠法
         if (i > 0)
@@ -268,6 +271,8 @@ short int PutVarItem(VarItem *item) { // 将键值对项目存入表中
  */
 VarItem *GetVarItem(char *key) { // 查询对应变量的项目
     size_t hash = VarHash(key);
+    if (!hash)
+        return NULL; // 哈希运算失败，这种情况可能是遇到常数项了
     VarItem *currentNode = varDict.table[hash];
     if (currentNode != NULL) {
         currentNode = currentNode->next; // 从首个节点开始
