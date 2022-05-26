@@ -123,7 +123,7 @@ void LPTrans(LPModel *model) {
     }
     // 最后检查目标函数中的决策变量是否都正好存在于约束中，不能多也不能少
     size_t tableVarNum = 0;
-    free(GetVarItems(&tableVarNum, NULL, &model->valid)); // 获得哈希表中变量的数量
+    free(GetVarItems(&tableVarNum, &model->valid)); // 获得哈希表中变量的数量
     size_t ofVarNum = 0; // 目标函数中的变量数目
     for (i = 0; i < model->objective.rightLen; i++) {
         if (strlen(model->objective.right[i]->variable) > 0) // 计算目标函数中的变量数目

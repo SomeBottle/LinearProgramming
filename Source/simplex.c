@@ -12,7 +12,7 @@ static void TermsInvert(Term **terms, size_t termsLen);
 
 static void InvertNegVars(Term **terms, size_t termsLen);
 
-static Term *CreateSlack(long int *currentSub, short int *valid);
+static Term *CreateSlack(size_t *currentSub, short int *valid);
 
 static void TermsSort(Term **terms, size_t termsLen);
 
@@ -78,7 +78,7 @@ void newSimplex(LPModel *model) {
  */
 void AddBigM(LPModel *model) {
     // 获得目前的最后一项变量的变量
-    
+
 }
 
 /**
@@ -91,13 +91,11 @@ void AddBigM(LPModel *model) {
 void LPStandardize(LPModel *model, short int dual) {
     // 感谢文章：https://www.bilibili.com/read/cv5287905
     size_t i, j, k;
-    // 当前x的下标
-    long int currentSub;
     short int valid = model->valid;
     // 这一步主要是为了获得当前的x的最大下标
     // 比如最大下标是x67中的67，那么松弛变量就从68开始，也就是x68
     // 值得注意的是，松弛变量并没有变量名只能三位的限制
-    free(GetVarItems(NULL, &currentSub, &valid));
+    size_t currentSub = GetCurrentXSub();
     if (model->objective.type != 1) { // 目标函数不是求max
         Term *temp = NULL;
         model->objective.type = 1;
@@ -246,16 +244,15 @@ void LPAlign(LPModel *model) {
         stTemp = &model->subjectTo[i]; // 当前约束左边的多项式
         k = 0;
         for (j = 0; j < model->objective.rightLen; j++) {
-            if (strlen(ofTerms[j]->variable) > 0) { // 跳过目标函数中不含变量的项
+            if (strlen(ofTerms[j]->variable) > 0) { // 跳过目标函数中不含变量的项，这也是为什么要用双指针
                 if (k >= stTemp->leftLen || strcmp(stTemp->left[k]->variable, ofTerms[j]->variable) != 0) {
                     // 当前位置的约束的变量名和目标函数中对应位置的对不上，说明未对齐
                     Term *new = TermCopy(ofTerms[j]); // 复制目标函数中的这一项
                     new->coefficient = Fractionize("0"); // 当然，插入到约束中时其系数只能是0
                     // 将该项目插入到该约束的指定位置
                     PushTerm(&stTemp->left, new, (long long int) k, &stTemp->leftLen, &stTemp->maxLeftLen, &valid);
-                    // 这里估计要用到双指针，多一个k变量
                 }
-                k++;
+                k++; // 这里要用到双指针，多一个k变量
             }
         }
     }
@@ -269,8 +266,8 @@ void LPAlign(LPModel *model) {
  * @return 一个指向创建的松弛变量的项(Term)的指针
  * @note 这个函数会顺带把创建的变量存入哈希表，松弛/剩余变量全都是>=0
  */
-Term *CreateSlack(long int *currentSub, short int *valid) {
-    char *strTemp = Int2Str(++(*currentSub)); // 临时字符串指针
+Term *CreateSlack(size_t *currentSub, short int *valid) {
+    char *strTemp = Int2Str((int) (++(*currentSub))); // 临时字符串指针
     Term *termBuff = (Term *) calloc(1, sizeof(Term));
     termBuff->variable[0] = 'x'; // 剩余变量和松弛变量都是x开头
     strcat(termBuff->variable, strTemp);

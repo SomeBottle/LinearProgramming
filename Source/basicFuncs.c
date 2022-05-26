@@ -484,7 +484,7 @@ void PrintModel(LPModel *model) { // 打印LP模型
     printf("\nVariables:\n\t");
     short int valid = 1;
     size_t varNum = 0;
-    VarItem **allVars = GetVarItems(&varNum, NULL, &valid);
+    VarItem **allVars = GetVarItems(&varNum, &valid);
     if (!valid) {
         printf("Failed to get.\n");
     } else {

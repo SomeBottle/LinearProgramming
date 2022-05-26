@@ -17,10 +17,11 @@
  * @note 这个函数会剔除掉目标函数中的常数项，因为常数项不影响结果解
  */
 SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid) {
-    size_t i, j, k, lackPtr;
+    size_t i, j, lackPtr;
     SimplexMatrix new = {};
     size_t objectiveLen = model->objective.rightLen; // 临时储存目标函数右边项数
-    for (i = 0; i < objectiveLen; i++) { // 在转化为矩阵时剔除掉目标函数中的常数项，常数项是不重要的
+    for (i = 0; i < objectiveLen; i++) {
+        // 在转化为矩阵时剔除掉目标函数中的常数项，常数项对解没有影响，在最终计算目标函数值的时候加回来即可
         if (strlen(model->objective.right[i]->variable) <= 0) {
             model->objective.rightLen = RmvTerm(model->objective.right, objectiveLen, i, 1);
         }

@@ -37,7 +37,8 @@ void Entry(LPModel *model) {
                 break;
         }
         if (cycle)
-            RestoreVarDict(&varDictBak); // 恢复成之前备份的哈希表
+            // 恢复成之前备份的哈希表，同时拿到新的拷贝
+            varDictBak = RestoreVarDict(&varDictBak);
     }
     // 销毁哈希表副本
     DelVarDict(&varDictBak);

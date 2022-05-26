@@ -13,12 +13,22 @@ static VarTable CopyVarDict(VarTable *target);
 /** 变量约束哈希表*/
 static VarTable varDict = {
         .tableSize=VAR_HASH_TABLE_LEN,
-        .table=NULL
+        .table=NULL,
+        .maxSubOfX=0
 };
 
 /** 初始化变量约束哈希表 */
 void InitVarDict() {
     varDict.table = (VarItem **) calloc(VAR_HASH_TABLE_LEN, sizeof(VarItem *));
+}
+
+/**
+ * 获得当前x开头变量的最大下标
+ * @return 一个size_t类型
+ * @note 为了加入松弛变量/剩余变量/人工变量做准备
+ */
+size_t GetCurrentXSub() {
+    return varDict.maxSubOfX;
 }
 
 /**
@@ -55,7 +65,8 @@ VarTable CopyVarDict(VarTable *target) {
     }
     VarTable copyDict = {
             .table=tableCopy,
-            .tableSize=target->tableSize
+            .tableSize=target->tableSize,
+            .maxSubOfX=target->maxSubOfX
     };
     return copyDict;
 }
@@ -72,51 +83,41 @@ VarTable BackupVarDict() {
 /**
  * 还原BackupVarDict备份的哈希表底层数组
  * @param target 待还原的目标（VarTable结构体）
+ * @return 新拷贝的哈希表(VarTable)
  * @note 这个操作会销毁目前使用的哈希表并进行替换!
- * @note 同时会销毁传入的target指针指向的哈希表，并将target指向新哈希表
+ * @note 同时会销毁传入的target指针指向的哈希表，返回一个复制的新哈希表
  * @note 如有遗漏，记得调用DelVarDict销毁备份
  */
-void RestoreVarDict(VarTable *target) {
+VarTable RestoreVarDict(VarTable *target) {
     VarTable copiedTable = CopyVarDict(target); // 深拷贝一份，与target指向的哈希表断开关联
     RevokeCurrDict(); // 销毁当前哈希表的内容
     DelVarDict(target); // 销毁副本内容
     // 还原备份
-    varDict.table = copiedTable.table;
-    varDict.tableSize = copiedTable.tableSize;
-    target = &copiedTable; // 将target指向新哈希表
+    varDict = copiedTable;
+    return copiedTable;
 }
 
 /**
  * 获取哈希表中储存的所有项目
  * @param len 指向一个size_t类型变量，用于储存返回数组的长度
- * @param maxSub x开头变量的最大下标
  * @param valid 指向一个变量，这个变量存放 1/0 代表 是/否 获取成功
  * @return 指向一个VarItem指针数组的指针
- * @note maxSub参数是为了松弛变量做准备
- * @note 比如当前下标最大的是x67，那么松弛变量就从x68开始
  * @note 一定要记得用完后对结果进行free
- * @note maxSub,len,valid这三个参数都可以传入NULL
+ * @note len,valid这两个参数都可以传入NULL
  */
-VarItem **GetVarItems(size_t *len, long int *maxSub, short int *valid) {
+VarItem **GetVarItems(size_t *len, short int *valid) {
     // 获得变量约束哈希表的所有键值对(key)，记得free
     int sizePerAlloc = 5; // 每次分配时增加多少元素
     size_t maxLen = sizePerAlloc; // 返回的指针数组长度
     int ptr = 0, i; // 当前指向的地址
-    long int currentSub;
     VarItem **allItems = (VarItem **) calloc(maxLen, sizeof(VarItem *));
     VarItem *currentNode;
-    if (maxSub != NULL)
-        *maxSub = 0; // 最小的x下标
     for (i = 0; i < varDict.tableSize; i++) {
         currentNode = varDict.table[i];
         if (currentNode != NULL) { // 这里有数据
             currentNode = currentNode->next; // 从首个节点开始
             while (currentNode != NULL) {
-                currentSub = strtol(currentNode->keyName + 1, NULL, 10);
                 allItems[ptr++] = currentNode; // 存入结果列表
-                if (maxSub != NULL && currentNode->keyName[0] == 'x' && currentSub > *maxSub)
-                    *maxSub = currentSub; // 找到x的最大下标，用于添加松弛变量
-
                 if (ptr >= maxLen) { // 结果数组长度不够了，重新分配一下
                     maxLen += sizePerAlloc; // 增加元素
                     allItems = (VarItem **) realloc(allItems, sizeof(VarItem *) * maxLen);
@@ -170,6 +171,7 @@ void DelVarDict(VarTable *target) {
         varDict.table = NULL;
     target->table = NULL;
     target->tableSize = 0;
+    target->maxSubOfX = 0;
 }
 
 /**
@@ -227,6 +229,11 @@ VarItem *CreateVarItem(char *varName, short int relation, int num) {
 short int PutVarItem(VarItem *item) { // 将键值对项目存入表中
     size_t hash = VarHash(item->keyName); // 计算哈希
     if (hash) {
+        // 获得这一项x的下标，比如x67，这里就是67
+        size_t currentSub = strtoull(item->keyName + 1, NULL, 10);
+        // 如果比已有maxSubOfX大，就更新x的最大下标
+        if (item->keyName[0] == 'x' && currentSub > varDict.maxSubOfX)
+            varDict.maxSubOfX = currentSub;
         if (hash >= varDict.tableSize) { // 算出的哈希大于分配的哈希数组长度，不够放了
             // 重新进行分配
             size_t newSize = hash + 1; // 新的数组大小
