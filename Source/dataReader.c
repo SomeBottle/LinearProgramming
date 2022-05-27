@@ -109,6 +109,8 @@ void LPTrans(LPModel *model) {
                 size_t ptr;
                 VarItem *newItem = CreateVarItem(stTemp->left[0]->variable, stTemp->relation, 0);
                 PutVarItem(newItem); // 将变量取值存入哈希表
+                // 先把待移除约束结构体中的堆内存给释放了
+                FreeST(&model->subjectTo[i]);
                 for (ptr = i; ptr < model->stLen - 1; ptr++) { // 移除指定的约束
                     model->subjectTo[ptr] = model->subjectTo[ptr + 1];
                 }
@@ -344,7 +346,7 @@ ST FormulaParser(char *str, short int *valid) {
                 }
                 memset(buffer, 0, sizeof(char) * bufferPointer); // 读取后清空buffer
                 bufferPointer = 0; // 重置字符串缓冲区
-                termBuffer = calloc(1, sizeof(Term)); // 重置单项缓冲区
+                termBuffer = (Term *) calloc(1, sizeof(Term)); // 重置单项缓冲区
             }
             if (currentChar == '+' || currentChar == '-') {
                 buffer[bufferPointer++] = currentChar; // 储存+-符号
@@ -478,7 +480,7 @@ short int WriteIn(OF *linearFunc, ST **subjectTo, size_t *stPtr, size_t *stSize,
                 printf("Objective function invalid.\n");
                 status = 0;
             }
-            freeSplitArr(&colonSp); // 用完后释放
+            FreeSplitArr(&colonSp); // 用完后释放
             break;
         case 2: // 写入ST
             formulaResult = FormulaParser(str, &status); // 解析约束

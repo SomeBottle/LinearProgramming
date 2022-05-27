@@ -32,12 +32,12 @@ int main(int args, char *argv[]) {
             printf("\n");
             free(constants); // 释放常量数组
             FreeModel(&parsed); // 释放LP模型分配的内存
-            RevokeCurrDict(); // 释放哈希表
+            RevokeAllDict(); // 释放哈希表
             constants = NULL;
+            fclose(fileStream);
         } else { // 打开文件失败
             printf("File not readable or does not exist.\n");
         }
-        fclose(fileStream);
     } else {
         printf("Missing argument. \nUsage: \n\t%s <filename>\n\n", argv[0]);
     }

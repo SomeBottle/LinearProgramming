@@ -50,7 +50,7 @@ SplitResult SplitByChr(char *str, char chr) {
  * 门当对户地释放SplitByChr的返回结果中的堆内存
  * @param rs 指向SplitByChr返回的结构体的指针
  */
-void freeSplitArr(SplitResult *rs) {
+void FreeSplitArr(SplitResult *rs) {
     size_t i;
     for (i = 0; i < rs->len; i++) {
         free(rs->split[i]);
@@ -332,10 +332,10 @@ char *Int2Str(int num) {
 /** 合并多项式中的同类项
  * @param terms 代表多项式的指针数组
  * @param len 指向指针数组长度变量的指针
- * @param forOF 是否用于合并目标函数的同类项
+ * @param recordVar 是否将变量计入哈希表
  * @return 返回合并是否成功
  */
-int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
+int CmbSmlTerms(Term **terms, size_t *termsLen, int recordVar) {
     size_t j, k;
     for (j = 0; j < *termsLen; j++) {
         for (k = j + 1; k < *termsLen; k++) {
@@ -355,7 +355,7 @@ int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF) {
             // 剔除消除了的项（合并后系数为0）
             *termsLen = RmvTerm(terms, *termsLen, j, 1);
             j--; // 去除某一项后遍历的位置也要前移一位
-        } else if (!forOF) { // 合并的是约束条件中的多项
+        } else if (!recordVar) { // 合并的是约束条件中的多项
             // 这一项有效，就把变量登记入哈希表
             // 创建键值对
             VarItem *newItem = CreateVarItem(terms[j]->variable, 0, 0);
@@ -390,8 +390,11 @@ size_t RmvTerm(Term **terms, size_t len, size_t pos, short int clean) {
     for (ptr1 = 0; ptr1 < len; ptr1++) {
         if (ptr1 != pos) {
             terms[ptr2++] = terms[ptr1];
-        } else if (clean) {
-            free(terms[ptr1]);
+        } else {
+            if (clean)
+                free(terms[ptr1]);
+            // 移除后置NULL，这样写是为了考虑到TermsCopy
+            terms[ptr1] = NULL;
         }
     }
     return ptr2; // 数组的新长度
@@ -452,9 +455,9 @@ void PrintTerms(Term **item, size_t itemNum) { // 打印多项式
  * @return 一个字符(char)
  * @note 这是对getchar的简单完善，保证不会读到多余的内容
  */
-char ReadChar() {
-    char ch = (char) getchar(); // 获取一个字符
-    while (getchar() != '\n'); // 清空缓存区
+int ReadChar() {
+    int ch;
+    while (!isalnum(ch = getchar())); // 清空缓存区
     return ch;
 }
 
@@ -523,15 +526,15 @@ LPModel CopyModel(LPModel *model) {
     // 复制目标函数的内存
     memcpy(&oFuncCopy, oFunc, sizeof(OF));
     // 复制目标函数左边和右边的多项式
-    oFuncCopy.left = TermsCopy(oFunc->left, oFunc->maxLeftLen, NULL);
-    oFuncCopy.right = TermsCopy(oFunc->right, oFunc->maxRightLen, NULL);
+    oFuncCopy.left = TermsCopy(oFunc->left, oFunc->maxLeftLen, oFunc->leftLen);
+    oFuncCopy.right = TermsCopy(oFunc->right, oFunc->maxRightLen, oFunc->rightLen);
     ST *subToCopy = (ST *) calloc(model->maxStLen, sizeof(ST));
     for (i = 0; i < model->stLen; i++) { // 遍历约束
         // 复制每个约束对应的内存
         memcpy(&subToCopy[i], &subTo[i], sizeof(ST));
         // 复制每个约束的左右两边的多项式
-        subToCopy[i].left = TermsCopy(subTo[i].left, subTo[i].maxLeftLen, NULL);
-        subToCopy[i].right = TermsCopy(subTo[i].right, subTo[i].maxRightLen, NULL);
+        subToCopy[i].left = TermsCopy(subTo[i].left, subTo[i].maxLeftLen, subTo[i].leftLen);
+        subToCopy[i].right = TermsCopy(subTo[i].right, subTo[i].maxRightLen, subTo[i].rightLen);
     }
     LPModel newModel;
     // 复制LPModel本体
@@ -557,23 +560,32 @@ Term *TermCopy(Term *origin) {
  * 复制多项式
  * @param origin 指向原多项式的二级指针（Term**）
  * @param maxLen 多项式指针数组最多能容纳多少元素
- * @param copyLen 指向一个变量，这个变量储存复制后的数组长度
+ * @param copyLen 要复制的长度
  * @return 指向复制出来的多项式的二级指针(Term**)
- * @note copyLen参数可以传入NULL
  */
-Term **TermsCopy(Term **origin, size_t maxLen, size_t *copyLen) {
+Term **TermsCopy(Term **origin, size_t maxLen, size_t copyLen) {
     size_t i;
     Term **new = (Term **) calloc(maxLen, sizeof(Term *));
-    for (i = 0; i < maxLen; i++) {
-        if (origin[i] != NULL) { // 保证不会访问到无效内存
-            new[i] = TermCopy(origin[i]); // 复制每一项
-        } else { // 一旦访问到了NULL就说明数组只有这么多内容了
-            break;
-        }
-    }
-    if (copyLen != NULL)
-        *copyLen = i;
+    for (i = 0; i < copyLen; i++)
+        new[i] = TermCopy(origin[i]); // 复制每一项
     return new;
+}
+
+/**
+ * 释放掉单个约束条件中分配的堆内存
+ * @param constraint 指向约束条件结构体(ST)的指针
+ * @note 主要在移除约束和释放模型的时候使用
+ */
+void FreeST(ST *constraint) {
+    size_t i;
+    for (i = 0; i < constraint->leftLen; i++) // 释放约束左边所有的项
+        free(constraint->left[i]);
+    for (i = 0; i < constraint->rightLen; i++) // 释放约束右边所有的项
+        free(constraint->right[i]);
+    constraint->leftLen = 0;
+    constraint->rightLen = 0;
+    free(constraint->left); // 释放指针数组
+    free(constraint->right);
 }
 
 /**
@@ -593,19 +605,8 @@ void FreeModel(LPModel *model) {
     oFunc->rightLen = 0;
     free(oFunc->left); // 释放目标函数中的项集
     free(oFunc->right);
-    for (i = 0; i < model->stLen; i++) { // 遍历释放约束条件内存
-        ST *stTemp = subTo + i;
-        for (j = 0; j < stTemp->leftLen; j++) { // 释放所有的项
-            free(stTemp->left[j]);
-        }
-        for (j = 0; j < stTemp->rightLen; j++) {
-            free(stTemp->right[j]);
-        }
-        stTemp->leftLen = 0;
-        stTemp->rightLen = 0;
-        free(stTemp->left); // 释放该约束中的项集
-        free(stTemp->right);
-    }
+    for (i = 0; i < model->stLen; i++)  // 遍历释放约束条件内存
+        FreeST(subTo + i); // 释放该约束条件中的堆内存
     free(subTo); // 释放约束指针数组占用的内存
     model->stLen = 0;
 }

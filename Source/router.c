@@ -23,7 +23,7 @@ void Entry(LPModel *model) {
         printf("\t(Other inputs). Exit\n"); // 退出
         printf("Type in the number correspond to the option: ");
         fflush(stdout); // 清空输出缓冲区
-        receive = ReadChar();
+        receive = (char)ReadChar();
         switch (receive) {
             case '1':
                 printf("Simplex Method\n");

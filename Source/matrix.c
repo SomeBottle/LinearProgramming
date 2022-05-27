@@ -100,10 +100,13 @@ void RevokeSMatrix(SimplexMatrix *matrix) {
         free(matrix->varNames[j]); // 销毁变量行中每一项
         free(matrix->ofCosts[j]); // 销毁价值系数中每一项
         for (i = 0; i < matrix->basicLen; i++) // 遍历行
-            free(matrix->cMatrix[i][j]); // 销毁矩阵中每一项
+            // 销毁矩阵中每一项，注意矩阵多出了一列用于存放b
+            free(matrix->cMatrix[i][j + 1]);
     }
-    for (i = 0; i < matrix->basicLen; i++)  // 遍历行
+    for (i = 0; i < matrix->basicLen; i++) {  // 遍历行
+        free(matrix->cMatrix[i][0]); // 销毁每行的首列
         free(matrix->cMatrix[i]); // 销毁矩阵的每行
+    }
     free(matrix->ofCosts); // 销毁价值系数数组
     free(matrix->varNames); // 销毁变量名数组
     free(matrix->cMatrix); // 销毁矩阵
@@ -119,4 +122,3 @@ void RevokeSMatrix(SimplexMatrix *matrix) {
     matrix->ofLen = 0;
 }
 
-// 接下来要写销毁SimplexMatrix矩阵的方法，对相应内存进行释放

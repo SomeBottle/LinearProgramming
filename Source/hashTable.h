@@ -49,6 +49,6 @@ extern VarItem *GetVarItem(char *key);
 
 extern VarItem **GetVarItems(size_t *len, short int *valid);
 
-extern void RevokeCurrDict();
+extern void RevokeAllDict();
 
 #endif

@@ -138,10 +138,10 @@ VarItem **GetVarItems(size_t *len, short int *valid) {
 }
 
 /**
- * 销毁当前的变量哈希表
+ * 销毁所有变量哈希表，包括备份
  * @note 本质还是调用DelVarDict，不过操作对象是静态对象varDict和varDictCopy
  */
-void RevokeCurrDict() {
+void RevokeAllDict() {
     DelVarDict(&varDict); // 销毁刚用完的哈希表
     DelVarDict(&varDictCopy); // 销毁哈希表备份
 }
@@ -246,6 +246,8 @@ short int PutVarItem(VarItem *item) { // 将键值对项目存入表中
                 return 0;
             }
         }
+
+        // 开始装入
         VarItem *currentNode = varDict.table[hash];
         if (currentNode == NULL) { // 这个哈希对应的链地址还未初始化
             currentNode = (VarItem *) calloc(1, sizeof(VarItem));
@@ -255,6 +257,7 @@ short int PutVarItem(VarItem *item) { // 将键值对项目存入表中
         while (currentNode->next != NULL) {
             if (strcmp(item->keyName, currentNode->next->keyName) == 0) { // 如果表中已经存放了这个键值对
                 item->next = currentNode->next->next; // 在对应位置插入节点
+                free(currentNode->next->keyName); // 别忘了keyName也是分配的堆内存！
                 free(currentNode->next); // 替换掉原来的键值对，这里就把原来的项目释放了
                 break;
             } else { // 否则一直寻找直至下一个节点为NULL

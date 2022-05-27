@@ -16,7 +16,7 @@
     system("pause")
 #else
 #define CLEAR system("clear")
-#define PAUSE printf("Press Enter to continue.\n");\
+#define PAUSE printf("Press Enter to continue.");\
     fflush(stdout);\
 getchar()
 #endif
@@ -85,11 +85,11 @@ extern void PushST(ST **subjectTo, size_t *ptr, size_t *maxLen, ST target, short
 
 // Basic Funcs below:
 
-extern char ReadChar();
+extern int ReadChar();
 
 extern SplitResult SplitByChr(char *str, char chr);
 
-extern void freeSplitArr(SplitResult *rs);
+extern void FreeSplitArr(SplitResult *rs);
 
 extern Number Fractionize(char *str);
 
@@ -97,13 +97,15 @@ extern double Decimalize(Number num);
 
 extern char *Int2Str(int num);
 
-extern int CmbSmlTerms(Term **terms, size_t *termsLen, int forOF);
+extern int CmbSmlTerms(Term **terms, size_t *termsLen, int recordVar);
 
 extern LPModel CopyModel(LPModel *model);
 
 extern Term *TermCopy(Term *origin);
 
-extern Term **TermsCopy(Term **origin, size_t maxLen, size_t *copyLen);
+extern Term **TermsCopy(Term **origin, size_t maxLen, size_t copyLen);
+
+extern void FreeST(ST *constraint);
 
 extern void FreeModel(LPModel *model);
 

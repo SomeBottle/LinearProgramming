@@ -16,7 +16,7 @@ static Term *CreateSlack(size_t *currentSub, short int *valid);
 
 static void TermsSort(Term **terms, size_t termsLen);
 
-static int VarCmp(char *str1, char *str2);
+static long int VarCmp(char *str1, char *str2);
 
 static void AddBigM(LPModel *model);
 
@@ -313,7 +313,7 @@ void TermsSort(Term **terms, size_t termsLen) {
  * @note <0 代表 str1<str2
  * @note =0 代表 两者权重相同
  */
-int VarCmp(char *str1, char *str2) {
+long int VarCmp(char *str1, char *str2) {
     long int serial1, serial2;
     if (str1[0] != str2[0]) {
         return str1[0] > str2[0] ? 1 : -1;
