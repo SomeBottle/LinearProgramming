@@ -56,7 +56,7 @@ SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid) {
         *numTemp = ofTerms[j]->coefficient; // 拷贝价值系数
         new.ofCosts[j] = numTemp; // 存入价值系数数组
         numTemp = NULL;
-        int unitPart = 0; // 检查一列是否是单位阵的一部分
+        int identityPart = 0; // 检查一列是否是单位阵的一部分
         double decimalized;
         size_t basicPos = 0; // 变量存入基的哪个位置
         for (i = 0; i < new.basicLen; i++) { // 固定列号j，遍历行i
@@ -67,10 +67,10 @@ SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid) {
             decimalized = Decimalize(*numTemp);
             if (decimalized == 1) // 记录一列中1出现的位置
                 basicPos = i; // 储存可能的变量入基位置
-            unitPart += decimalized > 0 ? (int) decimalized : 0; // 将当前列系数中>0的整数化并累加
+            identityPart += decimalized >= 0 ? (int) decimalized : 6; // 将当前列系数中>=0的系数进行整数化并累加
             numTemp = NULL;
         }
-        if (unitPart == 1) {
+        if (identityPart == 1) {
             // 这一列所有>=0的系数(化为整数)加起来等于1，那么这一列肯定是单位阵的一部分，比如0 0 1，0 1 0这种
             // 变量入基，这里直接把指针给赋给元素了，因为变量名和其对应的价值系数是没有变的
             new.basicVars[basicPos] = new.varNames[j];
