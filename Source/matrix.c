@@ -67,11 +67,11 @@ SimplexMatrix CreateSMatrix(LPModel *model, size_t **lack, short int *valid) {
             decimalized = Decimalize(*numTemp);
             if (decimalized == 1) // 记录一列中1出现的位置
                 basicPos = i; // 储存可能的变量入基位置
-            unitPart += decimalized > 0 ? (int) decimalized : 0; // 将结构体转化为整数并且取绝对值
+            unitPart += decimalized > 0 ? (int) decimalized : 0; // 将当前列系数中>0的整数化并累加
             numTemp = NULL;
         }
         if (unitPart == 1) {
-            // 这一列所有>=0的系数(整数)加起来等于1，那么这一列肯定是单位阵的一部分，比如0 0 1
+            // 这一列所有>=0的系数(化为整数)加起来等于1，那么这一列肯定是单位阵的一部分，比如0 0 1，0 1 0这种
             // 变量入基，这里直接把指针给赋给元素了，因为变量名和其对应的价值系数是没有变的
             new.basicVars[basicPos] = new.varNames[j];
             new.basicCosts[basicPos] = new.ofCosts[j];
