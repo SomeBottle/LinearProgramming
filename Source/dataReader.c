@@ -77,7 +77,7 @@ void LPTrans(LPModel *model) {
             // 合并左边同类项：全都是带变量的
             if (!CmbSmlTerms(stTemp->left, &stTemp->leftLen, 0)) {
                 // 出错
-                printf("ERROR: Invalid term appeared in the left hand side of the CONSTRAINT (ST Line: %d)\n",
+                printf("ERROR: Invalid term appeared in the left hand side of the CONSTRAINT (ST Line: %lu)\n",
                        i + 1);
                 model->valid = 0; // 无效
             }
@@ -89,14 +89,14 @@ void LPTrans(LPModel *model) {
             }
             // 检查约束左边在合并同类项后是否还有项目
             if (stTemp->leftLen <= 0) {
-                printf("ERROR: No term left in the left hand side of the CONSTRAINT (ST Line: %d) after combining similar terms.\n",
+                printf("ERROR: No term left in the left hand side of the CONSTRAINT (ST Line: %lu) after combining similar terms.\n",
                        i + 1);
                 model->valid = 0; // 无效
             }
             // 检查约束右边的常数项是否有效(valid)
             if (!stTemp->right[0]->coefficient.valid) {
                 // 运算错误时(比如分母出现0)，数字就会无效
-                printf("ERROR: Division by zero appeared in the right hand side of the CONSTRAINT (ST Line: %d).\n",
+                printf("ERROR: Division by zero appeared in the right hand side of the CONSTRAINT (ST Line: %lu).\n",
                        i + 1);
                 model->valid = 0;
             }
@@ -119,7 +119,7 @@ void LPTrans(LPModel *model) {
                 i--; // 约束移除后遍历位置前移
             }
         } else { // 有约束不完整
-            printf("ERROR: LPModel invalid due to the incomplete CONSTRAINT (ST Line: %d).\n", i + 1);
+            printf("ERROR: LPModel invalid due to the incomplete CONSTRAINT (ST Line: %lu).\n", i + 1);
             model->valid = 0;
         }
     }
@@ -159,8 +159,8 @@ LPModel Parser(FILE *fp) { // 传入读取文件操作指针用于读取文件
     size_t stSize = ST_LEN_PER_ALLOC; // 约束数组总长度
     short int valid = 1; // 模型是否有效
     char currentChar;
-    int bufferPointer = 0; // 字符串暂存区指针
-    int bufferLen = BUFFER_LEN_PER_ALLOC; // 字符串暂存区长度，防止溢出
+    size_t bufferPointer = 0; // 字符串暂存区指针
+    size_t bufferLen = BUFFER_LEN_PER_ALLOC; // 字符串暂存区长度，防止溢出
     char *buffer = RESET_BUFFER; // 字符串暂存区，最开始分配100个
     if (constants == NULL) { // 全局变量在外层声明时无法被赋值，只能在这里赋值了
         constants = (Constant *) calloc(CONSTANTS_LEN_PER_ALLOC, sizeof(Constant));
