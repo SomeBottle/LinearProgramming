@@ -458,22 +458,27 @@ short int WriteIn(OF *linearFunc, ST **subjectTo, size_t *stPtr, size_t *stSize,
                 } else if (strcmp(colonSp.split[0], "min") == 0) {
                     linearFunc->type = -1; // -1 代表min
                 }
-                formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
-                if (formulaResult.relation == 3) {
-                    if (formulaResult.leftLen == 1 && // OF左边只能有z一项
-                        Decimalize(formulaResult.left[0]->coefficient) == 1) { // 左边z系数必须为1
-                        linearFunc->left = formulaResult.left;
-                        linearFunc->right = formulaResult.right;
-                        linearFunc->maxLeftLen = formulaResult.maxLeftLen;
-                        linearFunc->maxRightLen = formulaResult.maxRightLen;
-                        linearFunc->leftLen = formulaResult.leftLen;
-                        linearFunc->rightLen = formulaResult.rightLen; // 结果存入linearFunc
+                if (linearFunc->left == NULL) { // 防止多条OF，如果有多条不及时阻止就会有内存泄漏
+                    formulaResult = FormulaParser(colonSp.split[1], &status); // 将公式处理成结构体
+                    if (formulaResult.relation == 3) {
+                        if (formulaResult.leftLen == 1 && // OF左边只能有z一项
+                            Decimalize(formulaResult.left[0]->coefficient) == 1) { // 左边z系数必须为1
+                            linearFunc->left = formulaResult.left;
+                            linearFunc->right = formulaResult.right;
+                            linearFunc->maxLeftLen = formulaResult.maxLeftLen;
+                            linearFunc->maxRightLen = formulaResult.maxRightLen;
+                            linearFunc->leftLen = formulaResult.leftLen;
+                            linearFunc->rightLen = formulaResult.rightLen; // 结果存入linearFunc
+                        } else {
+                            printf("Non-standard Objective function!\n");
+                            status = 0;
+                        }
                     } else {
-                        printf("Non-standard Objective function!\n");
+                        printf("Wrong relational operator in Objective function!\n");
                         status = 0;
                     }
                 } else {
-                    printf("Wrong relational operator in Objective function!\n");
+                    printf("There can be only ONE Objective function!\n");
                     status = 0;
                 }
             } else {
